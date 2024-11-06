@@ -1,3 +1,9 @@
+"""
+********************************************************************************
+training
+********************************************************************************
+"""
+
 import os
 import time
 import yaml
@@ -5,19 +11,18 @@ import numpy as np
 import tensorflow as tf
 
 from config_gpu import config_gpu
-from pinn import PINN
-from utils import *
+from pinn_base import PINN
+from utils import make_logger, write_logger, eval_dict, gen_condition, plot_comparison, plot_loss_curve
 
 filename = "./settings.yaml"
 
 def main():
     # read settings
-    with open(filename, mode="r") as f:
-        settings = yaml.safe_load(f)
+    with open(filename, mode="r") as file:
+        settings = yaml.safe_load(file)
 
-    # seed and run hyperparameters args
-    seed = settings["SEED"]["seed"]
-    logger_path = make_logger("seed: " + str(seed))
+    #run hyperparameters args
+    logger_path = make_logger("seed: in model")
     args = eval_dict(settings['ARGS'])
     
     #======model=======
@@ -28,80 +33,66 @@ def main():
         if isinstance(model_args[key], list):
             model_args[key] = tf.constant(model_args[key], tf.float32)
     
-    model = PINN(**(model_args))
-    model.init_custom_vars(eval_dict(settings['CUSTOM_VARS']))
+    var_names = settings['IN_VAR_NAMES']
+    func_names = settings['OUT_VAR_NAMES']
+    model = PINN(f_in=len(var_names), f_out=len(func_names), **(model_args))
+    model.init_custom_vars(dict_consts=settings['CUSTOM_CONSTS'], 
+                            dict_funcs=settings['CUSTOM_FUNCS'], 
+                            var_names=var_names)
+    
+    print("INIT DONE")
     
     tmin, xmin = in_lb = model_args['in_lb']
     tmax, xmax = in_ub = model_args['in_ub']
     
     #======conditions=======
     
-    conds = eval_dict(settings['CONDS'], locals()|{'tf':tf}, 1)
-    var_names = settings['VAR_NAMES']
+    conds = eval_dict(settings['CONDS'], locals()|{'tf':tf}|model.custom_vars, 1)
     conditions = []
     for key in list(conds.keys()):
-        cond_ = gen_condition(conds, key, func_names=var_names)
+        cond_ = gen_condition(conds, key, func_names=func_names, var_names=var_names, **model.custom_vars)
         conditions.append(cond_)
-
     cond_string = ['self.loss_(*conditions['+str(i)+']),' for i in range(len(conditions))]
     cond_string = '(' + ''.join(cond_string) + ')'
+    
     #======outputs=======
     
     ns = eval_dict(settings['NS'])
-    nt, nx = ns['nx']
-    
-    # bounds
-    t = np.linspace(tmin, tmax, nt)
-    x = np.linspace(xmin, xmax, nx)
-    
-    # reference
-    t_ref, x_ref = np.meshgrid(t, x)
-    t_ref = t_ref.reshape(-1, 1)
-    x_ref = x_ref.reshape(-1, 1)
-    u_ref = np.zeros((nt,nx)).reshape(-1, 1)
-    t_ref = tf.cast(t_ref, dtype=tf.float32)
-    x_ref = tf.cast(x_ref, dtype=tf.float32)
-    u_ref = tf.cast(u_ref, dtype=tf.float32)
+    x = [0]*len(var_names)
+    for i in range(len(var_names)):
+        x[i] = np.linspace(in_lb[i], in_ub[i], ns['nx'][i])
+    x = np.meshgrid(*x)
+    for i in range(len(var_names)):
+        x[i] = tf.cast(x[i].reshape(-1, 1), dtype=tf.float32)
+    x_ref = tf.transpose(tf.cast(x, dtype=tf.float32))[0]
+    u_ref = tf.cast(np.zeros(ns['nx']).reshape(-1, 1), dtype=tf.float32)
+    exact = tf.cast(model.custom_vars['exact'](x_ref), dtype=tf.float32)
     
     # log
-    log_names = ['epoch', 'glb', 'pde', 'ic', 'bc', 'u_l2']
-    losses_logs = np.empty((6,1))
+    losses_logs = np.empty((len(conds.keys()),1))
     
     # training
     wait = 0
-    loss_best = tf.constant(9999.)
-    loss_save = tf.constant(9999.)
-    t0 = time.perf_counter()  
+    loss_best = tf.constant(1e20)
+    loss_save = tf.constant(1e20)
+    t0 = time.perf_counter()
     
-    
-    for epoch in range(1, args['epochs']+1):
+    print("START TRAINING")
+    for epoch in range(1, int(args['epochs'])+1):
         # gradient descent
-        loss_glb, losses = model.train(
-                conditions, 
-                cond_string
-            )
-        loss_pde, loss_ic, loss_bc1, loss_bc2 = losses
-        loss_bc = loss_bc1 + loss_bc2
-        
+        loss_glb, losses = model.train(conditions, cond_string)
         # log
-        losses_logs = np.append(losses_logs, np.array([[epoch, loss_glb, loss_pde, loss_ic, loss_bc, 0]]).T, axis=1)
         t1 = time.perf_counter()
         elps = t1 - t0
         
+        losses = dict(zip(conds.keys(), losses))
+        logger_data = [key+f": {losses[key]:.3e}, " for key in losses.keys()]
         logger_data = \
-            f"epoch: {epoch:d}, " \
-            f"loss_glb: {loss_glb:.3e}, " \
-            f"loss_pde: {loss_pde:.3e}, " \
-            f"loss_ic: {loss_ic:.3e}, " \
-            f"loss_bc: {loss_bc:.3e}, " \
-            f"loss_best: {loss_best:.3e}, " \
-            f"wait: {wait:d}, " \
-            f"elps: {elps:.3f}, " \
-            f" "
-            
-        print(logger_data)
+            f"epoch: {epoch:d}, "\
+            f"loss_total: {loss_glb:.3e}, " + ', '.join(logger_data)
         write_logger(logger_path, logger_data)
         if epoch %1000 == 0:
+            print(logger_data)
             print(elps)
         if epoch % 250 == 0:
             print(">>>>> saving")
@@ -122,23 +113,21 @@ def main():
         
         # monitor
         if epoch % 1000 == 0:
-            u_ = model.forward_pass(tf.concat([x_ref, t_ref], axis=1))
-            u_n = u_.numpy()
-            comps = u_n.transpose()
-            comps_names = var_names
-            for comp, title in zip(comps,comps_names):
-                plot_comparison(
-                        epoch, 
-                        x=t_ref, y=x_ref, u_inf=comp,
-                        umin=-0.1, umax=3.,
-                        vmin= 0., vmax=.05,
-                        xmin=tmin, xmax=tmax, xlabel="t",
-                        ymin=xmin, ymax=xmax, ylabel="x", title=title
-                    )
-            plot_loss_curve(
-                epoch,
-                losses_logs[:,1:],
-                labels = log_names
+            u_ = model(x_ref)
+            u_n = u_.numpy().transpose()
+            print('ERROR ', np.max(np.abs(exact - u_[:,0])))
+            plot_commons = {'epoch':epoch, 
+                        'x':x_ref[:,0], 'y':x_ref[:,1],
+                        'umin': -0.1, 'umax': 3.,
+                        'vmin': 0., 'vmax': .05,
+                        'xmin': tmin, 'xmax':tmax, 'xlabel':var_names[0],
+                        'ymin':xmin, 'ymax':xmax, 'ylabel':var_names[1],}
+            for func, title in zip(u_n,func_names):
+                plot_comparison(u_inf=func,title=title, **plot_commons)
+                plot_comparison(u_inf=exact,title=title+'exact', **plot_commons)
+                plot_comparison(u_inf=(np.abs(exact-func)), title=title+'diff', **plot_commons)
+            plot_loss_curve(epoch, losses_logs[:,1:],
+                labels = list(conds.keys())
             )
             
 if __name__ == "__main__":

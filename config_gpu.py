@@ -1,3 +1,10 @@
+"""
+********************************************************************************
+device configuration
+for details, see: https://www.tensorflow.org/guide/gpu
+********************************************************************************
+"""
+
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 

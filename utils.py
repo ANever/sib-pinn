@@ -1,3 +1,9 @@
+"""
+********************************************************************************
+utility
+********************************************************************************
+"""
+
 import os
 import datetime
 import numpy as np
@@ -5,42 +11,88 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import seaborn as sns
 import re
+import numbers
+
+
+def find_all_words(string):
+    _len = len(string)
+    list_of_words = []
+    start = 0
+    while start<_len:
+        for end in range(start+1, _len+1):
+            if (end == _len):
+                list_of_words.append((start, string[start:end]))
+                start = _len
+                break
+            elif not string[start:end].isidentifier():
+                list_of_words.append((start, string[start:end-1]))
+                start = end
+                break
+    return list_of_words
+
+def replace_words(string, replacement_dict):
+    list_of_words = find_all_words(string)
+    shift = 0
+    for word in (list_of_words):
+        if word[1] in replacement_dict.keys():
+            start = word[0]
+            end = start + len(word[1])
+            string = string[:start+shift] + replacement_dict[word[1]] + string[end+shift:]
+            shift += len(replacement_dict[word[1]])-len(word[1])
+    return string
 
 def gen_points(num, bounds, n_vars=2):
         points = [0]*n_vars
         for i in range(n_vars):
-            points[i] = tf.random.uniform((num, 1), bounds[i][0], bounds[i][1], dtype=tf.float32)
-        return points
-    
-def gen_condition(conds, cond_name, **parser_kwargs):
-    cond_dict = conds[cond_name]
-    t, x = gen_points(cond_dict['N'], cond_dict['point_area'])
-    c = tf.transpose(cond_dict['right_side'](t,x))
-    eq_string = line_parser(cond_dict['eq_string'], **parser_kwargs)
-    compute_grads = cond_dict['compute_grads']
-    #plt.scatter(t,x)
-    #plt.show()
-    return (t, x, c, eq_string, compute_grads)
+            points[i] = tf.random.uniform((int(num), 1), bounds[i][0], bounds[i][1], dtype=tf.float32)
+        return tf.concat(points, axis=1)
         
-def line_parser(eq_string, func_names, variable_list = ['y', 'x']):
+def gen_condition(conds, cond_name, **kwargs):
+    cond_dict = conds[cond_name]
+    x = gen_points(cond_dict['N'], cond_dict['point_area'])
+    right_side_func = eval("lambda _x: (" + cond_dict['right_side'] + ",)", kwargs)
+    c = tf.transpose(tf.convert_to_tensor(right_side_func(x), dtype=tf.float32))
+    eq_string = line_parser('( '+cond_dict['eq_string']+' ,)', **kwargs)
+    if 'd/d' in cond_dict['eq_string']:
+        compute_grads = True
+    else:
+        compute_grads = False
+    return (x, c, eq_string, compute_grads)
+
+def eval_dict(d, kwargs={},recursion=0):
+    if recursion == 0:
+        for key in d.keys():
+            if key not in ['eq_string', 'act', 'right_side']:
+                if isinstance(d[key], numbers.Number):
+                    d[key] = tf.cast(d[key], tf.float32)
+                else:
+                    d[key] = eval(str(d[key]), kwargs | d)
+        return d
+    else:
+        for key in d.keys():
+            if key not in ['eq_string', 'act', 'right_side']:
+                d[key] = eval_dict(d[key], kwargs | d, recursion-1)
+        return d
+
+default_var_names = ('x', 'y')
+def line_parser(eq_string, func_names, var_names = default_var_names, **kwargs):
+        var_dict = dict(zip(var_names,range(len(var_names))))
         splited = eq_string.split(' ')
-
         ops_stack = []
-
         def is_der_operator(string: str):
             if re.findall('\(d\/d..?\)', string):
                 return True
             else:
                 return False
             
-        def apply_ops(ops_stack: list, func: str, variable_list: list):
-            dif_powers = [0]*len(variable_list)
+        def apply_ops(ops_stack: list, func: str, var_dict: list):
+            dif_powers = [0]*len(var_dict)
             for op in ops_stack:
                 op = op.replace('(d/d', '')
                 op = op.replace(')', '')
                 op = op.split('^')
 
-                var_index = variable_list.index(op[0])
+                var_index = var_dict[op[0]]
                 try:
                     power = op[1]
                 except:
@@ -49,37 +101,24 @@ def line_parser(eq_string, func_names, variable_list = ['y', 'x']):
             previous = ''
             f_name = 'u_'
             dif_string = ''
-            for i in range(len(variable_list)):
-                dif_string += variable_list[i]*dif_powers[i]
+            dif_index = ''
+            #standard u_ has shape (n,m), u_x (n,m,x) u_xx (n,m,x,x) and so on
+            for i in range(len(var_dict)):
+                dif_string += 'x'*dif_powers[i]
+                dif_index += (','+str(i))*dif_powers[i]
             func_index = func_names.index(func)
-            return (f_name + dif_string +'[:,'+str(func_index) +']')
-            
-        def is_func(string:str, variable_list):
-            if string in func_names:
-                return (True, 'basis')
-            else:
-                return (False, None)
+            return (f_name + dif_string +'[:,'+str(func_index) + dif_index + ']')
+
         res = ''
         for i in range(len(splited)):
             if is_der_operator(splited[i]):
                 ops_stack.append(splited[i])
-            elif is_func(splited[i], variable_list)[0]:
-                res += apply_ops(ops_stack, splited[i], variable_list)
+            elif (splited[i] in func_names):
+                res += apply_ops(ops_stack, splited[i], var_dict)
                 ops_stack = []
             else:
                 res += splited[i]
         return res
-
-def eval_dict(d, kwargs={},recursion=0):
-    if recursion == 0:
-        for key in d.keys():
-            if key not in ['eq_string', 'act']:
-                d[key] = eval(str(d[key]), kwargs)
-        return d
-    else:
-        for key in d.keys():
-            d[key] = eval_dict(d[key], kwargs, recursion-1)
-        return d
 
 def make_logger(add_data=None):
     now = datetime.datetime.now()
@@ -101,8 +140,6 @@ def write_logger(path, log):
 
 def plotting():
     fig, ax = plt.subplots(figsize=(8, 4))
-    
-    
     plt.clf()
     plt.close()
 
@@ -114,7 +151,7 @@ def plot_comparison(
                 xmin, xmax, xlabel, 
                 ymin, ymax, ylabel, title = ''):
                 
-    fig, ax = plt.subplots(figsize=(8, 4))
+    fig, ax = plt.subplots(figsize=(4, 4))
     #ax.set_xticks
     xticks = (np.max(x) - np.min(x)) / 4.
     yticks = (np.max(y) - np.min(y)) / 4.
@@ -140,7 +177,7 @@ def plot_loss_curve(
     labels
 ):
     epoch_log = logs[0]
-    plt.figure(figsize=(8, 4))
+    plt.figure(figsize=(4, 4))
     for log, label in zip(logs[1:],labels[1:]):
         plt.plot(epoch_log, log, ls="-",  alpha=.7, label=label)#, c="k")
     #plt.plot(epoch_log, loss_pde_log, ls="--", alpha=.3, label="loss_pde", c="tab:blue")
