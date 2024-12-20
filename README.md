@@ -72,7 +72,7 @@ CONDS:
      right_side: x*[0., 0., 0.]                                    # right side, non-dependant of PINN outputs
      point_area:  [[tmin, tmax], [xmin, xmax]]                     # limits for input variables, used to generate collocation points
      N: int(1e4)                                                   # number of collocation points generated
-     ```
+```
 
 ## Device (CPU / GPU)
 <code>train.py</code> assumes the use of a GPU. To train a model on the CPU, simply change the flag parameter in <code>config_gpu(flag)</code> from <code>flag=0</code> to <code>flag=-1</code>. A short description can be found in <code>config_gpu.py</code>. 
