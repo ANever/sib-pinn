@@ -3,9 +3,10 @@
 training
 ********************************************************************************
 """
+
 import time
 import yaml
-import numpy as np 
+import numpy as np
 import tensorflow as tf
 import pickle
 
@@ -21,11 +22,8 @@ from utils import (
     plot_comparison,
 )
 
-from tensorflow.python.framework.ops import disable_eager_execution
+filename = "./settings.yaml"
 
-#disable_eager_execution()
-
-filename = "./settings-sir-controlled (Copy).yaml"
 
 def main():
     # read settings
@@ -38,7 +36,7 @@ def main():
 
     # ======model=======
 
-    model_args = eval_dict(settings["MODEL"], {"tf": tf, "": np})
+    model_args = eval_dict(settings["MODEL"], {"tf": tf, "np": np})
 
     for key in model_args.keys():
         if isinstance(model_args[key], list):
@@ -56,12 +54,8 @@ def main():
 
     print("INIT DONE")
 
-    in_lb = model_args["in_lb"]
-    tmin = in_lb[0]
-    xmin = in_lb[1]
-    in_ub = model_args["in_ub"]
-    tmax = in_ub[0]
-    xmax = in_ub[1]
+    tmin, xmin, ymin = in_lb = model_args["in_lb"]
+    tmax, xmax, ymax = in_ub = model_args["in_ub"]
 
     # tmin, x1min, x2min = in_lb = model_args["in_lb"]
     # tmax, x1max, x2max = in_ub = model_args["in_ub"]
@@ -85,26 +79,17 @@ def main():
     # ======outputs=======
 
     ns = eval_dict(settings["NS"])
-    _x = [0] * len(var_names)
-    for i in range(len(var_names)):
-        _x[i] = tf.linspace(in_lb[i], in_ub[i], ns["nx"][i])
-    print(len(_x))
-    _x = (tf.meshgrid(*_x))
-
-    #print(x)
-    
-    #x = tf.cast(np.empty((len(_x), int(np.prod(_x.shape)))), dtype=tf.float32)
-    x = [0]*len(_x)
-    for i in range(len(var_names)):
-        x[i] = tf.reshape(_x[i],(-1,1))#tf.cast(_x[i].reshape(-1, 1), dtype=tf.float32)
-    #x = tf.reshape(_x,()
+    _n_var_names = len(var_names)
+    x = [0] * _n_var_names
+    for i in range(_n_var_names):
+        x[i] = np.linspace(in_lb[i], in_ub[i], ns["nx"][i])
+    x = np.meshgrid(*x)
+    for i in range(_n_var_names):
+        x[i] = tf.cast(x[i].reshape(-1, 1), dtype=tf.float32)
     x_ref = tf.transpose(tf.cast(x, dtype=tf.float32))[0]
-    u_ref = tf.cast(np.zeros(ns['nx']).reshape(-1, 1), dtype=tf.float32)
+    # u_ref = tf.cast(np.zeros(ns['nx']).reshape(-1, 1), dtype=tf.float32)
     exact = tf.cast(model.custom_vars["exact"](x_ref), dtype=tf.float32)
-    
-    print(x)
 
-    print(x_ref)
     # log
     losses_logs = np.empty((len(conds.keys()), 1))
 
@@ -119,6 +104,19 @@ def main():
     ]
     cond_string_here = "(" + "".join(cond_string_here) + ")"
 
+    """
+    with tf.GradientTape(persistent=False, watch_accessed_variables=False) as tp:
+        tp.watch(model.trainable_weights)
+        losses = tf.cast(eval(cond_string_here), tf.float32)
+        losses_normed = model.normalize_losses(losses)
+        grads = tp.jacobian(losses_normed, model.trainable_weights)
+        model.update_gammas(grads)
+        loss_glb = tf.math.reduce_sum(losses_normed)
+    del tp
+    grad = [tf.reduce_sum(v, axis=0) for v in grads]
+    print(grad)
+    # print(tf.math.reduce_mean(grad))
+    """
     print("START TRAINING")
     for epoch in range(1, int(args["epochs"]) + 1):
         # gradient descent
@@ -126,7 +124,7 @@ def main():
         # log
         t1 = time.perf_counter()
         elps = t1 - t0
-        #print(loss_glb)
+
         losses = dict(zip(conds.keys(), losses))
         logger_data = [key + f": {losses[key]:.3e}, " for key in losses.keys()]
         logger_data = f"epoch: {epoch:d}, loss_total: {loss_glb:.3e}, " + ", ".join(
@@ -139,10 +137,9 @@ def main():
             print(elps)
         if epoch % 250 == 0:
             print(">>>>> saving")
-            w_ending = '.weights.h5'
-            model.save_weights("./saved_weights/weights_ep" + str(epoch)+w_ending)
+            model.save_weights("./saved_weights/weights_ep" + str(epoch))
             if loss_glb < loss_save:
-                model.save_weights("./best_weights/best_weights"+w_ending)
+                model.save_weights("./best_weights/best_weights")
                 loss_save = loss_glb
 
         # early stopping
@@ -170,10 +167,13 @@ def main():
             for func, title in zip(u_n, func_names):
                 plot_comparison(u_inf=func, title=title, **plot_commons)
                 #    plot_comparison(u_inf=exact,title=title+'exact', **plot_commons)
-                #    plot_comparison(u_inf=(.abs(exact-func)), title=title+'diff', **plot_commons)
-                #    with open(title + str(epoch) + ".pickle", "wb") as handle:
-                #    pickle.dump(u_n, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                #    plot_comparison(u_inf=(np.abs(exact-func)), title=title+'diff', **plot_commons)
+                with open(title + str(epoch) + ".pickle", "wb") as handle:
+                    pickle.dump(u_n, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
             plot_loss_curve(epoch, losses_logs[:, 1:], labels=list(conds.keys()))
+
+
 if __name__ == "__main__":
     config_gpu(flag=0, verbose=True)
     main()
