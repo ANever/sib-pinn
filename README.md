@@ -75,4 +75,4 @@ CONDS:
      ```
 
 ## Device (CPU / GPU)
-<code>train.py</code> assumes the use of a GPU. To train a model on the CPU, simply change the flag parameter in <code>config_gpu(flag)</code> from <code>flag=0</code> to <code>flag=-1</code>. A short description can be found in <code>config_gpu.py</code>. 
+`train.py` assumes the use of a GPU. To train a model on the CPU, simply change the flag parameter in `config_gpu(flag)` from `flag=0` to `flag=-1`. A short description can be found in `config_gpu.py`. 
