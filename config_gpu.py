@@ -31,15 +31,14 @@ def config_gpu(flag=1, verbose=True):
                     print(device_lib.list_local_devices())
             except RuntimeError as e:
                 print(e)
-        except:
-            print("There are no available GPUs. Check hardware and CUDA Toolkit version.")
+        
 
-    elif flag == 0:
+    elif flag == 0 or flag == 1:
         if gpus:
             # find GPU:0, with limited the memory growth
             try:
-                tf.config.experimental.set_visible_devices(gpus[0], "GPU")
-                tf.config.experimental.set_memory_growth(gpus[0], True)
+                tf.config.experimental.set_visible_devices(gpus[flag], "GPU")
+                tf.config.experimental.set_memory_growth(gpus[flag], True)
                 logical_gpus = tf.config.experimental.list_logical_devices("GPU")
                 if verbose:
                     print(
@@ -51,22 +50,6 @@ def config_gpu(flag=1, verbose=True):
                 print(e)
         except:
             print("There are no available GPUs. Check hardware and CUDA Toolkit version.")
-
-    elif flag == 1:
-        if gpus:
-            # find GPU:1, with limited the memory growth
-            try:
-                tf.config.experimental.set_visible_devices(gpus[1], "GPU")
-                tf.config.experimental.set_memory_growth(gpus[1], True)
-                logical_gpus = tf.config.experimental.list_logical_devices("GPU")
-                if verbose:
-                    print(
-                        len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs"
-                    )
-                    print("\nDevice information;")
-                    print(device_lib.list_local_devices())
-            except RuntimeError as e:
-                print(e)
 
     else:
         raise NotImplementedError(">>>>> gpu_config: flag not specified properly")
