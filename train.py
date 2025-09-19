@@ -25,7 +25,7 @@ from tensorflow.python.framework.ops import disable_eager_execution
 
 #disable_eager_execution()
 
-filename = "./settings-sir-controlled (Copy).yaml"
+filename = "./settings/sir-controlled (Copy).yaml"
 
 def main():
     # read settings
@@ -135,7 +135,6 @@ def main():
         write_logger(logger_path, logger_data)
         if epoch % 200 == 0:
             print(logger_data)
-            #    print(model.gammas)
             print(elps)
         if epoch % 250 == 0:
             print(">>>>> saving")
