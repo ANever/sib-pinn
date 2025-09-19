@@ -1,3 +1,5 @@
 matplotlib
 pyyaml
+cudatoolkit
+cudnn
 tensorflow

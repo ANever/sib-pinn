@@ -1,0 +1,52 @@
+ARGS:
+  epochs: 10000
+  batch_size: -1
+  patience: 1000
+
+MODEL:
+  f_hid: 20
+  depth: 5
+  in_lb: '[0.]'
+  in_ub: '[1.]'
+  act: tanh
+  seed: 42
+  lr: 0.0001
+
+NS:
+  nx: [100]
+
+IN_VAR_NAMES:
+ [t]
+
+OUT_VAR_NAMES:
+ [S,I,R, uS, uI, uR]
+
+CUSTOM_CONSTS:
+  beta0: 1.
+  gamma: 1.
+  
+CUSTOM_FUNCS:
+  exact: t
+
+CONDS:
+  ode_dynamics:
+     eq_string: [(d/dt) S + beta * S * I, (d/dt) I - beta * S * I + gamma * I, (d/dt) R - gamma * I]
+     right_side: [0*_x,0*_x,0*_x]
+     point_area: '[[tmin, tmax]]'
+     N: 1e4
+  hjb:
+     eq_string: [-(d/dt) uS, tf.pow(beta0*I*tf.max(0, uI - uS ),1/3) + (beta0*I * ( uI - uS ))**2 / 2, 0]
+     right_side: [0*_x,0*_x,0*_x]
+     point_area: '[[tmin, tmax]]'
+     N: 1e4
+  initial:
+     eq_string: [S, I, R]
+     right_side: [0*_x,0*_x,0*_x]
+     point_area: '[[tmin, tmin]]'
+     N: 1e2
+  terminal:
+     eq_string: [uS, uI, uR]
+     right_side: [0*_x,0*_x,0*_x]
+     point_area: '[[tmax, tmax]]'
+     N: 1e2
+
