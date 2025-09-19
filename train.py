@@ -167,6 +167,7 @@ def main():
                 #    with open(title + str(epoch) + ".pickle", "wb") as handle:
                 #    pickle.dump(u_n, handle, protocol=pickle.HIGHEST_PROTOCOL)
             plot_loss_curve(epoch, losses_logs[:, 1:], labels=list(conds.keys()))
+            
 if __name__ == "__main__":
     config_gpu(flag=0, verbose=True)
     main()
