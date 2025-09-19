@@ -31,6 +31,8 @@ def config_gpu(flag=1, verbose=True):
                     print(device_lib.list_local_devices())
             except RuntimeError as e:
                 print(e)
+        except:
+            print("There are no available GPUs. Check hardware and CUDA Toolkit version.")
 
     elif flag == 0:
         if gpus:
@@ -47,6 +49,8 @@ def config_gpu(flag=1, verbose=True):
                     print(device_lib.list_local_devices())
             except RuntimeError as e:
                 print(e)
+        except:
+            print("There are no available GPUs. Check hardware and CUDA Toolkit version.")
 
     elif flag == 1:
         if gpus:
