@@ -68,6 +68,7 @@ def gen_condition(conds, cond_name, **kwargs):
         compute_grads = True
     else:
         compute_grads = False
+    eq_string = compile(eq_string, "<string>", "eval",optimize=1)
     return (x, c, eq_string, compute_grads)
 
 

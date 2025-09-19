@@ -75,6 +75,7 @@ class PINN(tf.keras.Sequential):
         self, dict_consts: dict, dict_funcs: dict = {}, var_names: list = []
     ):
         def make_lambda(string):
+            string = compile(string, "<string>", "eval",optimize=1)
             return lambda _variables: eval(
                 string, self.custom_vars | {"tf": tf, "_variables": _variables}
             )

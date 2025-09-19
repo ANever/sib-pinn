@@ -52,7 +52,6 @@ def main():
         dict_funcs=settings["CUSTOM_FUNCS"],
         var_names=var_names,
     )
-    print(model.custom_vars)
 
     print("INIT DONE")
 
@@ -79,7 +78,7 @@ def main():
         "self.loss_(*conditions[" + str(i) + "])," for i in range(len(conditions))
     ]
     cond_string = "(" + "".join(cond_string) + ")"
-
+    
     model.init_dynamical_normalisastion(len(conditions))
 
     # ======outputs=======
@@ -88,10 +87,8 @@ def main():
     _x = [0] * len(var_names)
     for i in range(len(var_names)):
         _x[i] = tf.linspace(in_lb[i], in_ub[i], ns["nx"][i])
-    print(len(_x))
     _x = (tf.meshgrid(*_x))
 
-    #print(x)
     
     #x = tf.cast(np.empty((len(_x), int(np.prod(_x.shape)))), dtype=tf.float32)
     x = [0]*len(_x)
@@ -102,9 +99,6 @@ def main():
     u_ref = tf.cast(np.zeros(ns['nx']).reshape(-1, 1), dtype=tf.float32)
     exact = tf.cast(model.custom_vars["exact"](x_ref), dtype=tf.float32)
     
-    print(x)
-
-    print(x_ref)
     # log
     losses_logs = np.empty((len(conds.keys()), 1))
 
@@ -114,10 +108,10 @@ def main():
     loss_save = tf.constant(1e20)
     t0 = time.perf_counter()
 
-    cond_string_here = [
-        "model.loss_(*conditions[" + str(i) + "])," for i in range(len(conditions))
-    ]
-    cond_string_here = "(" + "".join(cond_string_here) + ")"
+    #cond_string_here = [
+    #    "model.loss_(*conditions[" + str(i) + "])," for i in range(len(conditions))
+    #]
+    #cond_string_here = "(" + "".join(cond_string_here) + ")"
 
     print("START TRAINING")
     for epoch in range(1, int(args["epochs"]) + 1):
@@ -133,7 +127,7 @@ def main():
             logger_data
         )
         write_logger(logger_path, logger_data)
-        if epoch % 200 == 0:
+        if True:#epoch % 200 == 0:
             print(logger_data)
             print(elps)
         if epoch % 250 == 0:
