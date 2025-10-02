@@ -5,7 +5,7 @@ import tensorflow as tf
 import tensorflow.keras as keras
 
 from utils import eval_dict, replace_words
-
+from lbfgs import lbfgs_minimize, set_LBFGS_options
 
 class PINN(tf.keras.Sequential):
     def __init__(
@@ -60,7 +60,11 @@ class PINN(tf.keras.Sequential):
         self.lr = tf.keras.optimizers.schedules.ExponentialDecay(
             initial_learning_rate=self.lr, decay_steps=1000, decay_rate=0.9
         )
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.lr)
+        
+        set_LBFGS_options()
+        self.optimizer = lbfgs_minimize
+        
+        #self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.lr)
 
         # system params
         self.custom_vars = {}
@@ -188,16 +192,19 @@ class PINN(tf.keras.Sequential):
             losses_normed = self.normalize_losses(losses)
             grads = tp.jacobian(losses_normed, self.trainable_weights)
         del tp
-        self.update_gammas(grads)
+        #self.update_gammas(grads)
         loss_glb = tf.math.reduce_sum(losses_normed)
-        #del tp
         grad = [tf.reduce_sum(v, axis=0) for v in grads]
-        """
-        with tf.GradientTape(persistent=False) as tp1:
-            losses2 = tf.cast(eval(conds_string),tf.float32)
-            loss_glb = tf.math.reduce_sum(losses2)
-            grad = tp1.gradient(loss_glb, self.trainable_weights)
-            del tp1
-        """
         self.optimizer.apply_gradients(zip(grad, self.trainable_weights))
         return loss_glb, losses
+    
+    @tf.function
+    def eval_loss(self, conditions, conds_string):
+        losses = tf.cast(eval(conds_string), tf.float32)
+        losses_normed = tf.reduce_sum(self.normalize_losses(losses))
+        return losses_normed
+        
+    #@tf.function
+    def train_lbfgs(self, conditions, conds_string):
+        loss = lambda: self.eval_loss(conditions, conds_string)
+        self.optimizer(self.trainable_weights, loss)

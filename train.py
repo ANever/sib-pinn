@@ -116,10 +116,13 @@ def main():
     print("START TRAINING")
     for epoch in range(1, int(args["epochs"]) + 1):
         # gradient descent
-        loss_glb, losses = model.train(conditions, cond_string)
-        # log
+        #loss_glb, losses = model.train(conditions, cond_string)
+        result_l = model.train_lbfgs(conditions, cond_string)
+        
+        print(result_l)# log
         t1 = time.perf_counter()
         elps = t1 - t0
+        print(elps)
         #print(loss_glb)
         losses = dict(zip(conds.keys(), losses))
         logger_data = [key + f": {losses[key]:.3e}, " for key in losses.keys()]
@@ -129,7 +132,7 @@ def main():
         write_logger(logger_path, logger_data)
         if True:#epoch % 200 == 0:
             print(logger_data)
-            print(elps)
+            
         if epoch % 250 == 0:
             print(">>>>> saving")
             w_ending = '.weights.h5'
