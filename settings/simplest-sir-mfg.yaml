@@ -1,0 +1,66 @@
+ARGS:
+  epochs: 15000
+  batch_size: -1
+  patience: 2000
+
+MODEL:
+  f_hid: 4
+  depth: 8
+  in_lb: '[-1.]'
+  in_ub: '[1.]'
+  act: tanh
+  seed: 42
+  lr: 0.001
+  beta: 0.01
+  dyn_norm: 
+  
+NS:
+  nx: [100]
+
+IN_VAR_NAMES:
+ [t]
+
+OUT_VAR_NAMES:
+ [S, I, uS, uI]
+
+CUSTOM_CONSTS:
+  cost_inf: 1.
+  #alpha: 0.
+  beta_max: 20.
+  gamma: 2.
+  S_0: 0.7
+
+CUSTOM_FUNCS:
+  exact: t*0
+  beta: beta_max/(1.+tf.exp(-alpha(_variables,u_)))
+  c: beta_max *( uI - uS ) *I / 2
+  #c_abs: tf.math.abs(c(_variables,u_)) #/3.
+  alpha: tfp.math.find_root_secant(lambda x:x*(2.+tf.exp(x)+tf.exp(-x)) + S, t*0.)[0]
+  #tfp.math.find_root_secant(lambda x:x*(2.+tf.exp(x)+tf.exp(-x)) - c(_variables,u_), t*0.)[0]
+  #tfp.math.find_root_chandrupatla(lambda x:x*(2.+tf.exp(x)+tf.exp(-x)) - c(_variables,u_), -c_abs(_variables,u_), c_abs(_variables,u_))[0]
+  #tfp.math.find_root_chandrupatla(lambda x:x, t*0.-3., t*0.-3.)
+#
+  #"tfp.math.find_root_secant(lambda x_: x_, t *0.+3.)[0]"
+
+CONDS:
+  pde:
+    eq_string: ' (d/dt) S + beta(vars,u_) * S * I ,
+                 (d/dt) I - beta(vars,u_) * S * I + gamma * I ,
+                 (d/dt) uS + beta(vars,u_) * I * ( uS - uI ) + 0.*alpha(vars,u_)**2,
+                 (d/dt) uI + gamma * uI + cost_inf'
+    right_side: 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0] 
+    point_area: '[[tmin, tmax]]'
+    N: 1e5
+  
+  initial:
+     eq_string: S , I
+     right_side: 0*vars[:, 0] + S_0 , 0*vars[:, 0] + 1 - S_0
+     point_area: '[[tmin, tmin]]'
+     N: 1e2
+     
+  
+  terminal:
+     eq_string: uS , uI
+     right_side: 0*vars[:, 0] , 0*vars[:, 0]
+     point_area: '[[tmax, tmax]]'
+     N: 1e2

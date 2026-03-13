@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import tensorflow as tf
-
+import tensorflow_probability as tfp
 import tensorflow.keras as keras
 
 from utils import eval_dict, replace_words
@@ -81,12 +81,12 @@ class PINN(tf.keras.Sequential):
         return eval(_dict_func, other_dicts | inner_vars_dict)
 
     def init_custom_vars(
-        self, dict_consts: dict, dict_funcs: dict = {}, var_names: list = []
+        self, dict_consts: dict, dict_funcs: dict = {}, var_names: list = [], out_var_names: list = []
     ):
         def make_lambda(string):
             string = compile(string, "<string>", "eval",optimize=1)
-            return lambda _variables: eval(
-                string, self.custom_vars | {"tf": tf, "_variables": _variables}
+            return lambda _variables, u_: eval(
+                string, self.custom_vars | {"tf": tf, "tfp":tfp, "_variables": _variables, "u_": u_}
             )
 
         self.custom_vars = eval_dict(dict_consts, {"tf": tf})
@@ -96,6 +96,8 @@ class PINN(tf.keras.Sequential):
         replecement_dict = {}
         for i in range(len(var_names)):
             replecement_dict[var_names[i]] = "_variables[:," + str(i) + "]"
+        for i in range(len(out_var_names)):
+            replecement_dict[out_var_names[i]] = "u_[:," + str(i) + "]"
         for key in dict_funcs.keys():
             self.custom_vars.update({
                 key: make_lambda(replace_words(dict_funcs[key], replecement_dict))

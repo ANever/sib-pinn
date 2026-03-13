@@ -1,0 +1,66 @@
+ARGS:
+  epochs: 200000
+  batch_size: -1
+  patience: 1000
+
+MODEL:
+  f_hid: 20
+  depth: 5
+  in_lb: '[0.,0.]'
+  in_ub: '[5.,1.]'
+  act: tanh
+  seed: 40
+  lr: 0.0001
+  
+NS:
+  nx: [100, 100]
+
+IN_VAR_NAMES:
+ [t, x]
+
+OUT_VAR_NAMES:
+ [S, I, psi, beta_s_i]
+
+CUSTOM_CONSTS:
+  sigma: 0.1
+  beta: 12.0
+  w: 20.0
+  w0: 1.0
+  w1: 8.0
+  w2: 1.0
+  w3: 1.0
+
+CUSTOM_FUNCS:
+  gamma: 3*x
+  exact: 0*x
+
+CONDS:
+  pde:
+     eq_string: '- (d/dt) I - gamma(vars) * I + beta * S * I + sigma /2 * (d/dx)^2 I - 1/2/w0 * ( (d/dx)^2 psi * I + (d/dx) psi * (d/dx) I ), 
+                 - (d/dt) psi + sigma /2 * (d/dx)^2 psi - (w1* I **2 + w2* vars[:,1] * I + w3*(1-vars[:,1])**2 + ( (d/dx) psi )**2 ),
+                   (d/dx) beta_s_i - beta * S * I ,
+                   (d/dx) S '
+     right_side: 0.0*vars[:,0], 0.0*vars[:,0], 0.0*vars[:,0], 0.0*vars[:,0]
+     point_area: '[[tmin, tmax], [xmin, xmax]]'
+     N: 7e3
+  integral_border:
+     eq_string: beta_s_i
+     right_side: 0*vars[:,0]
+     point_area: '[[tmin, tmax],[xmin, xmin]]'
+     N: 5e1
+  ode:
+     eq_string: '- (d/dt) S - beta_s_i'
+     right_side: 0*vars[:,0]
+     point_area: '[[tmin, tmax],[xmax, xmax]]'
+     N: 5e1
+  initial:
+     eq_string: w* S , w* I
+     right_side: 0*vars[:,0] + w*0.9 , 0*vars[:,0] + w*0.1
+     point_area: '[[tmin, tmin],[xmin, xmax]]'
+     N: 5e1
+  terminal:
+     eq_string: psi
+     right_side: 0*vars[:,0]
+     point_area: '[[tmax, tmax],[xmin, xmax]]'
+     N: 5e1
+

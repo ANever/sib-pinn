@@ -51,6 +51,7 @@ def train1d(filename, model_class, output_dir=""):
         dict_consts=settings["CUSTOM_CONSTS"],
         dict_funcs=settings["CUSTOM_FUNCS"],
         var_names=var_names,
+        out_var_names=func_names,
     )
 
     # print("INIT DONE")
@@ -89,7 +90,7 @@ def train1d(filename, model_class, output_dir=""):
         x[i] = tf.reshape(_x[i],(-1,1))
     x_ref = tf.transpose(tf.cast(x, dtype=tf.float32))[0]
     u_ref = tf.cast(np.zeros(ns['nx']).reshape(-1, 1), dtype=tf.float32)
-    exact = tf.cast(model.custom_vars["exact"](x_ref), dtype=tf.float32)
+    exact = tf.cast(model.custom_vars["exact"](x_ref,None), dtype=tf.float32)
     
     # log
     losses_logs = np.empty((len(conds.keys()), 1))
@@ -106,7 +107,9 @@ def train1d(filename, model_class, output_dir=""):
     cond_string_here = "(" + "".join(cond_string_here) + ")"
 
     # print("START TRAINING")
-    for epoch in tqdm(range(1, int(args["epochs"]) + 1)):
+    N = int(args["epochs"])
+    pbar = tqdm(range(N),total=N, desc="N")
+    for epoch in pbar: #tqdm(range(1, int(args["epochs"]) + 1)):
         # gradient descent
         loss_glb, losses = model.train(conditions, cond_string)
         
@@ -114,8 +117,9 @@ def train1d(filename, model_class, output_dir=""):
         
         t1 = time.perf_counter()
         elps = t1 - t0
-        # print(elps)
-        # print(loss_glb)
+        #print(epoch, elps)
+        #print(loss_glb)
+        pbar.set_postfix_str(f"Loss={loss_glb}", refresh=False)
         losses = dict(zip(conds.keys(), losses))
         logger_data = [key + f": {losses[key]:.3e}, " for key in losses.keys()]
         logger_data = f"epoch: {epoch:d}, loss_total: {loss_glb:.3e}, " + ", ".join(
@@ -169,4 +173,4 @@ def train1d(filename, model_class, output_dir=""):
             
 if __name__ == "__main__":
     config_gpu(flag=-1, verbose=True)
-    train1d(filename="./settings/simple-sir.yaml", model_class=SI_PINN, output_dir="/simple-sir/si_pinn")
+    train1d(filename="./settings/simplest-sir-mfg.yaml", model_class=PINN, output_dir="/simplest-sir/si_pinn")
