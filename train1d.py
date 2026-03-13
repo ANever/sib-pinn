@@ -25,6 +25,7 @@ from utils import (
     to_gif
 )
 
+#tf.config.run_functions_eagerly(True)
 
 def train1d(filename, model_class, output_dir=""):
     # read settings
@@ -112,13 +113,9 @@ def train1d(filename, model_class, output_dir=""):
     for epoch in pbar: #tqdm(range(1, int(args["epochs"]) + 1)):
         # gradient descent
         loss_glb, losses = model.train(conditions, cond_string)
-        
         losses_logs = np.append(losses_logs, np.expand_dims(losses, axis=0).T, axis=1)
-        
         t1 = time.perf_counter()
         elps = t1 - t0
-        #print(epoch, elps)
-        #print(loss_glb)
         pbar.set_postfix_str(f"Loss={loss_glb}", refresh=False)
         losses = dict(zip(conds.keys(), losses))
         logger_data = [key + f": {losses[key]:.3e}, " for key in losses.keys()]
@@ -173,4 +170,4 @@ def train1d(filename, model_class, output_dir=""):
             
 if __name__ == "__main__":
     config_gpu(flag=-1, verbose=True)
-    train1d(filename="./settings/simplest-sir-mfg.yaml", model_class=PINN, output_dir="/simplest-sir/si_pinn")
+    train1d(filename="./settings/simplest-sir-mfg.yaml", model_class=SI_PINN, output_dir="/simplest-sir/si_pinn")

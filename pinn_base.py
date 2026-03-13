@@ -85,9 +85,9 @@ class PINN(tf.keras.Sequential):
     ):
         def make_lambda(string):
             string = compile(string, "<string>", "eval",optimize=1)
-            return lambda _variables, u_: eval(
-                string, self.custom_vars | {"tf": tf, "tfp":tfp, "_variables": _variables, "u_": u_}
-            )
+            return tf.function(lambda vars_, u_: eval(
+                string, self.custom_vars | {"tf": tf, "tfp":tfp, "vars_": vars_, "u_": u_}
+            ))
 
         self.custom_vars = eval_dict(dict_consts, {"tf": tf})
         for key in self.custom_vars.keys():
@@ -95,7 +95,7 @@ class PINN(tf.keras.Sequential):
 
         replecement_dict = {}
         for i in range(len(var_names)):
-            replecement_dict[var_names[i]] = "_variables[:," + str(i) + "]"
+            replecement_dict[var_names[i]] = "vars_[:," + str(i) + "]"
         for i in range(len(out_var_names)):
             replecement_dict[out_var_names[i]] = "u_[:," + str(i) + "]"
         for key in dict_funcs.keys():
@@ -136,7 +136,7 @@ class PINN(tf.keras.Sequential):
             g = eval(eq_string, locals() | self.custom_vars | {"tf": tf})
         else:
             u_ = self(vars, training=True)
-            g = eval(eq_string, locals() | self.custom_vars | {"tf": tf})    
+            g = eval(eq_string, locals() | self.custom_vars | {"tf": tf})
         g = tf.convert_to_tensor(g, dtype=tf.float32)
         return u_, g
 

@@ -6,6 +6,7 @@ import numpy as np
 import tensorflow as tf
 import yaml
 import tensorflow.keras as keras
+import tensorflow_probability as tfp
 import traceback
 
 
@@ -17,7 +18,19 @@ from utils import (
     eval_dict,
 )
 
+class WaveBasis(tf.keras.layers.Layer):
+    def __init__(self, f_in, **kwargs):
+        super().__init__(**kwargs)
+        self.f_in = f_in
+        self.f_out = f_in*3
+            
+    def call(self, inputs):
+        return tf.keras.layers.Concatenate(axis=1)([inputs, tf.math.pow(inputs,2), tf.math.cos(inputs)])
 
+    def compute_output_shape(self, input_shape):
+        output_shape = list(input_shape)
+        output_shape[-1] *= 3
+        return output_shape
 
 class WaveAct(tf.keras.layers.Layer):
     def __init__(self, **kwargs):
@@ -210,10 +223,12 @@ class SI_PINN(tf.keras.Sequential):
         tf.random.set_seed(self.seed)
 
         # build a network
-        self.add(FourierPositionalEmbedding(f_in=self.f_in, 
-                                            f_hid=self.f_hid, 
-                                            f_out=self.f_hid, 
-                                            input_shape=(self.f_in,)))
+        
+        self.add(WaveBasis(f_in=self.f_hid))
+        #self.add(FourierPositionalEmbedding(f_in=self.f_in, 
+        #                                    f_hid=self.f_hid, 
+        #                                    f_out=self.f_hid, 
+        #                                    input_shape=(self.f_in,)))
         # self.add(WaveletLayer(f_in=self.f_hid, f_out=self.f_hid))
         for _ in range(self.depth):
             self.add(keras.layers.Dense(self.f_hid, activation=self.act_func))
@@ -238,13 +253,13 @@ class SI_PINN(tf.keras.Sequential):
         return eval(_dict_func, other_dicts | inner_vars_dict)
 
     def init_custom_vars(
-        self, dict_consts: dict, dict_funcs: dict = {}, var_names: list = []
+        self, dict_consts: dict, dict_funcs: dict = {}, var_names: list = [], out_var_names: list = []
     ):
         def make_lambda(string):
             string = compile(string, "<string>", "eval",optimize=1)
-            return lambda _variables: eval(
-                string, self.custom_vars | {"tf": tf, "_variables": _variables}
-            )
+            return tf.function(lambda vars_, u_: eval(
+                string, self.custom_vars | {"tf": tf, "tfp":tfp, "vars_": vars_, "u_": u_}
+            ))
 
         self.custom_vars = eval_dict(dict_consts, {"tf": tf})
         for key in self.custom_vars.keys():
@@ -252,7 +267,9 @@ class SI_PINN(tf.keras.Sequential):
 
         replecement_dict = {}
         for i in range(len(var_names)):
-            replecement_dict[var_names[i]] = "_variables[:," + str(i) + "]"
+            replecement_dict[var_names[i]] = "vars_[:," + str(i) + "]"
+        for i in range(len(out_var_names)):
+            replecement_dict[out_var_names[i]] = "u_[:," + str(i) + "]"
         for key in dict_funcs.keys():
             self.custom_vars.update({
                 key: make_lambda(replace_words(dict_funcs[key], replecement_dict))
