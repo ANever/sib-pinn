@@ -111,7 +111,6 @@ def train1d(filename, model_class, output_dir=""):
     N = int(args["epochs"])
     pbar = tqdm(range(N),total=N, desc="N")
     for epoch in pbar: #tqdm(range(1, int(args["epochs"]) + 1)):
-        # gradient descent
         loss_glb, losses = model.train(conditions, cond_string)
         losses_logs = np.append(losses_logs, np.expand_dims(losses, axis=0).T, axis=1)
         t1 = time.perf_counter()
@@ -169,5 +168,5 @@ def train1d(filename, model_class, output_dir=""):
                      sort_files=False)
             
 if __name__ == "__main__":
-    config_gpu(flag=-1, verbose=True)
+    config_gpu(flag=0, verbose=True)
     train1d(filename="./settings/simplest-sir-mfg.yaml", model_class=SI_PINN, output_dir="/simplest-sir/si_pinn")

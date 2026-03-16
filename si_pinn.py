@@ -383,7 +383,8 @@ class SI_PINN(tf.keras.Sequential):
             grads = tp.jacobian(losses_normed, self.trainable_weights)
         del tp
         self.update_gammas(grads)
-        loss_glb = tf.math.reduce_sum(losses_normed)
+        loss_glb = tf.math.reduce_sum(losses)
+        #loss_glb_normed = tf.math.reduce_sum(losses_normed)
         grad = [tf.reduce_sum(v, axis=0) for v in grads]
         self.optimizer.apply_gradients(zip(grad, self.trainable_weights))
         return loss_glb, losses
