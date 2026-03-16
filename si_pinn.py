@@ -18,6 +18,41 @@ from utils import (
     eval_dict,
 )
 
+
+class Separator(tf.keras.layers.Layer):
+    def __init__(self, f_in, multiplier, **kwargs):
+        super().__init__(**kwargs)
+        self.f_in = f_in
+        self.f_out = f_in*multiplier
+        self.multiplier = multiplier
+
+    def call(self, inputs):
+        return tf.reshape(tf.keras.ops.repeat(tf.inputs, self.multiplier) (self.multiplier, len(tf.inputs)))
+    
+    def compute_output_shape(self, input_shape):
+        output_shape = list(input_shape)
+        output_shape[-1] *= self.f_out
+        return output_shape
+
+class DenseSeparated(tf.keras.layers.Layer):
+    def __init__(self, f_in, **kwargs):
+        super().__init__(**kwargs)
+        self.f_in = f_in
+        self.f_out = f_in*3
+    
+    def build(self, input_shape):
+        self.kernel = self.add_weight("kernel",
+                                  shape=[self.num_subnets, int(input_shape[-1]),
+                                         self.num_outputs])
+
+    def call(self, inputs):
+        return self.act(tf.matmul(inputs, self.kernel))
+
+    #def compute_output_shape(self, input_shape):
+    #    output_shape = list(input_shape)
+    #    output_shape[-1] *= 3
+    #    return output_shape
+
 class WaveBasis(tf.keras.layers.Layer):
     def __init__(self, f_in, **kwargs):
         super().__init__(**kwargs)
@@ -29,7 +64,7 @@ class WaveBasis(tf.keras.layers.Layer):
 
     def compute_output_shape(self, input_shape):
         output_shape = list(input_shape)
-        output_shape[-1] *= 3
+        output_shape[-1] *= self.f_out
         return output_shape
 
 class WaveAct(tf.keras.layers.Layer):
@@ -223,24 +258,18 @@ class SI_PINN(tf.keras.Sequential):
         tf.random.set_seed(self.seed)
 
         # build a network
+        self.num_subnets = 1
+        self.add(DenseSeparated(self.num_subnets, self.f_hid, activation=self.act_func))
         
         self.add(WaveBasis(f_in=self.f_hid))
-        #self.add(FourierPositionalEmbedding(f_in=self.f_in, 
-        #                                    f_hid=self.f_hid, 
-        #                                    f_out=self.f_hid, 
-        #                                    input_shape=(self.f_in,)))
-        # self.add(WaveletLayer(f_in=self.f_hid, f_out=self.f_hid))
         for _ in range(self.depth):
             self.add(keras.layers.Dense(self.f_hid, activation=self.act_func))
         self.add(keras.layers.Dense(self.f_out))
 
         # optimizer (overwrite the learning rate if necessary)
         self.lr = tf.keras.optimizers.schedules.ExponentialDecay(
-            initial_learning_rate=self.lr, decay_steps=3000, decay_rate=0.7
+            initial_learning_rate=self.lr, decay_steps=2000, decay_rate=0.7
         )
-        
-        #set_LBFGS_options()
-        #self.optimizer = 
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.lr)
 
         # system params

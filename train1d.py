@@ -110,7 +110,7 @@ def train1d(filename, model_class, output_dir=""):
     # print("START TRAINING")
     N = int(args["epochs"])
     pbar = tqdm(range(N),total=N, desc="N")
-    for epoch in pbar: #tqdm(range(1, int(args["epochs"]) + 1)):
+    for epoch in pbar:
         loss_glb, losses = model.train(conditions, cond_string)
         losses_logs = np.append(losses_logs, np.expand_dims(losses, axis=0).T, axis=1)
         t1 = time.perf_counter()
@@ -122,8 +122,7 @@ def train1d(filename, model_class, output_dir=""):
             logger_data
         )
         write_logger(logger_path, logger_data)
-        # print(logger_data)
-            
+
         # early stopping
         if loss_glb < loss_best * 1.5:
             loss_best = loss_glb
@@ -139,7 +138,6 @@ def train1d(filename, model_class, output_dir=""):
             file_extension = "jpg"
             u_ = model(x_ref)
             u_n = u_.numpy().transpose()
-            # print("Estimation error ", np.max(np.abs(exact - u_[:, 0])))
             plot_commons = {
                 "epoch": epoch,
                 "x": x_ref[:, 0],
