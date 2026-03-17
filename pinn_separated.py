@@ -10,7 +10,7 @@ import tensorflow_probability as tfp
 import traceback
 
 
-from pinn_base import PINN, PINN_BASE
+from pinn_base import PINN_BASE
 from utils import (
     eval_dict, 
     replace_words,
@@ -74,148 +74,7 @@ class WaveBasis(tf.keras.layers.Layer):
         output_shape[-1] *= self.f_out
         return output_shape
 
-class WaveAct(tf.keras.layers.Layer):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    def build(self, input_shape):
-        self.w1 = self.add_weight(
-            name="w1",
-            shape=(),
-            initializer="random_normal",
-            trainable=True
-        )
-        self.w2 = self.add_weight(
-            name="w2", 
-            shape=(),
-            initializer="random_normal",
-            trainable=True
-        )
-        super().build(input_shape)
-
-    def call(self, inputs):
-        return self.w1 * tf.math.sin(inputs) + self.w2 * tf.math.cos(inputs)
-
-    def compute_output_shape(self, input_shape):
-        return input_shape
-
-
-def TestWaveAct(show=False):
-    try:
-        act_func = WaveAct()
-        x = tf.Variable([1.3, 0.7, 2.4, 0.5, -1.1])
-        with tf.GradientTape(persistent=True) as tape:    
-            y = act_func(x)
-            grad = tape.gradient(y, x)
-            if show:
-                tf.print(y, grad, sep="\n")
-        del tape
-        return True
-    except:
-        return False
-
-
-class FourierPositionalEmbedding(tf.keras.layers.Layer):
-    def __init__(self, f_in, f_hid, f_out, **kwargs):
-        super().__init__(**kwargs)
-
-        self.f_in = f_in
-        self.f_out = f_out
-        self.f_hid = f_hid
-        self.B = tf.random.uniform((f_in, self.f_hid))
-
-    def build(self, f_in):
-        self.fourier_emb = self.add_weight(
-            name="Fourier",
-            shape=(2 * self.f_hid, self.f_out),
-            initializer="random_normal",
-            trainable=True
-        )
-
-        self.pos_emb = self.add_weight(
-            name="Positional",
-            shape=(self.f_in, self.f_out),
-            initializer="random_normal",
-            trainable=True
-        )
-        
-        super().build(self.f_in)
-
-    def call(self, x):
-        
-        z = 2 * np.pi * tf.matmul(x, self.B)
-        f = tf.concat([tf.sin(z), tf.cos(z)], axis=-1)
-        
-        emb_f = tf.matmul(f, self.fourier_emb)
-        emb_p = tf.matmul(x, self.pos_emb)
-        
-        return emb_f + emb_p
-    
-    def compute_output_shape(self, input_shape):
-        return (input_shape[0], self.f_out)
-
-
-def TestFourierPositionalEmbedding(show=False):
-    try:
-        x = tf.transpose(tf.random.uniform((2, 5), dtype=tf.double))
-        t = tf.transpose([tf.linspace(start=0, stop=1, num=5)])
-        spacetime = tf.concat([t, x], axis=-1)
-        FourierLayer = FourierPositionalEmbedding(3, 4, 4)
-    
-        with tf.GradientTape(persistent=True) as tape:    
-            y = FourierLayer(spacetime)
-            grad = tape.gradient(y, x)
-            if show:
-                tf.print(y, grad, sep="\n")
-        del tape
-        return True
-    except Exception as e:
-        print(f"\n{type(e).__name__}: {e}\n")
-        traceback.print_exc() 
-        return False
-
-
-class WaveletLayer(tf.keras.layers.Layer):
-    def __init__(self, f_in, f_out, **kwargs):
-        super().__init__(**kwargs)
-        self.f_in = f_in
-        self.f_out = f_out
-        
-    def build(self, f_in):
-        self.lin = self.add_weight(
-            name="Linear",
-            shape=(self.f_in, self.f_out),
-            initializer="random_uniform",
-            trainable=True
-        )
-        self.act = WaveAct()
-        super().build(f_in)
-    
-    def call(self, x):
-        out = self.act(tf.matmul(x, self.lin))
-        return out
-
-
-def TestWaveletLayer(show=False):
-    try:
-        x = tf.transpose(tf.random.uniform((2, 5), dtype=tf.double))
-        t = tf.transpose([tf.linspace(start=0, stop=1, num=5)])
-        spacetime = tf.concat([t, x], axis=-1)
-        Wavelet = WaveletLayer(f_in=3, f_out=2)
-    
-        with tf.GradientTape(persistent=True) as tape:    
-            y = Wavelet(spacetime)
-            grad = tape.gradient(y, x)
-            if show:
-                tf.print(y, grad, sep="\n")
-        del tape
-        return True
-    except Exception as e:
-        print(f"\n{type(e).__name__}: {e}\n")
-        traceback.print_exc() 
-        return False
-
-class SI_PINN(tf.keras.Sequential):
+class PINN_SEP(PINN_BASE):
     def __init__(
         self,
         f_hid,

@@ -7,40 +7,32 @@ import tensorflow.keras as keras
 from utils import eval_dict, replace_words
 #from lbfgs import lbfgs_minimize, set_LBFGS_options
 
-class PINN(tf.keras.Sequential):
+class PINN_BASE(tf.keras.Sequential):
     def __init__(
         self,
-        f_hid,
-        depth,
         in_lb,
         in_ub,
         var_names,
         func_names,
-        w_init="Glorot",
-        b_init="zeros",
-        act="tanh",
+        act = 'tanh',
         lr=1e-3,
         dyn_norm=None,
-        beta=0.01,
+        beta=0.1,
         seed=42,
     ):
         super().__init__()
         self.var_names = var_names
         self.f_in = int(len(var_names))  # f_in)
         self.f_out = int(len(func_names))  # f_out)
-        self.f_hid = int(f_hid)
-        self.depth = int(depth)
         self.lb = in_lb  # lower bound of input
         self.ub = in_ub  # upper bound of input
         self.mean = (in_lb + in_ub) / 2
-        self.w_init = w_init  # weight initialization
-        self.b_init = b_init  # bias initialization
         self.act = act  # activation
         self.lr = lr  # learning rate
         self.seed = int(seed)
         self.f_scl = "minmax"  # "linear" / "minmax" / "mean"
         self.d_type = tf.float32
-        self.model_name = "pinn"
+        #self.model_name = "pinn"
 
         self.act_func = self.init_act_func(self.act)
 
@@ -55,23 +47,13 @@ class PINN(tf.keras.Sequential):
         os.environ["PYTHONHASHSEED"] = str(self.seed)
         np.random.seed(self.seed)
         tf.random.set_seed(self.seed)
-
-        # build a network
-        self.add(keras.layers.InputLayer((self.f_in,)))
-        for _ in range(self.depth):
-            self.add(keras.layers.Dense(self.f_hid, activation=self.act_func))
-        self.add(keras.layers.Dense(self.f_out))
-
+        
         # optimizer (overwrite the learning rate if necessary)
         self.lr = tf.keras.optimizers.schedules.ExponentialDecay(
             initial_learning_rate=self.lr, decay_steps=3000, decay_rate=0.7
         )
         
-        #set_LBFGS_options()
-        #self.optimizer = 
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.lr)
-
-        # system params
         self.custom_vars = {}
 
     def _inner_lambda(self, _dict_func, var_names: list, other_dicts={}):  # _variables
@@ -228,3 +210,30 @@ class PINN(tf.keras.Sequential):
         loss = lambda: self.eval_loss(conditions, conds_string)
         res = lbfgs_minimize(self.trainable_weights, loss)
         return res
+
+
+
+
+class PINN(PINN_BASE):
+    def __init__(
+        self,
+        f_hid,
+        depth,
+        w_init="Glorot",
+        b_init="zeros",
+        **kwargs
+    ):
+        super().__init__(**kwargs)
+        
+        self.f_hid = int(f_hid)
+        self.depth = int(depth)
+        self.w_init = w_init  # weight initialization
+        self.b_init = b_init  # bias initialization
+        self.model_name = "pinn"
+        
+        
+        # build a network
+        self.add(keras.layers.InputLayer((self.f_in,)))
+        for _ in range(self.depth):
+            self.add(keras.layers.Dense(self.f_hid, activation=self.act_func))
+        self.add(keras.layers.Dense(self.f_out))

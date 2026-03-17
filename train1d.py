@@ -167,4 +167,4 @@ def train1d(filename, model_class, output_dir=""):
             
 if __name__ == "__main__":
     config_gpu(flag=0, verbose=True)
-    train1d(filename="./settings/simplest-sir-mfg.yaml", model_class=SI_PINN, output_dir="/simplest-sir/si_pinn")
+    train1d(filename="./settings/simplest-sir-mfg.yaml", model_class=PINN, output_dir="/simplest-sir/si_pinn")
