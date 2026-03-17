@@ -19,50 +19,6 @@ from utils import (
 )
 
 
-class Separator(tf.keras.layers.Layer):
-    def __init__(self, multiplier, **kwargs):
-        super().__init__(**kwargs)
-        self.multiplier = multiplier
-        
-    def build(self, input_shape):
-        self.f_out = input_shape[-1]*multiplier
-
-    def call(self, inputs):
-        return tf.reshape(tf.keras.ops.repeat(tf.inputs, self.multiplier) (self.multiplier, len(tf.inputs)))
-    
-    #def compute_output_shape(self, input_shape):
-    #    output_shape = list(input_shape)
-    #    output_shape[-1] *= self.multiplier
-    #   return output_shape
-
-class DenseSeparated(tf.keras.layers.Layer):
-    def __init__(self, num_outputs, **kwargs):  #activation=None
-        super().__init__(**kwargs)
-        self.num_outputs = num_outputs
-        #self.activation = tf.keras.activations.get(activation)
-    
-    def build(self, input_shape):
-        self.kernel = self.add_weight("kernel",
-                                  shape=tuple(self.num_subnets, int(input_shape[-1]),
-                                         self.num_outputs),
-                                  initializer='glorot_uniform',
-                                  trainable=True)
-                                         
-        self.bias = self.add_weight(shape=tuple(self.num_subnets,self.num_outputs),
-                                 initializer='zeros',
-                                 trainable=True)
-
-    def call(self, inputs):
-        return self.act(tf.matmul(inputs, self.kernel) + self.bias)
-
-    #def compute_output_shape(self, input_shape):
-    #    output_shape = list(input_shape)
-    #    output_shape[-1] *= 3
-    #    return output_shape
-
-
-
-
 class WaveAct(tf.keras.layers.Layer):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
