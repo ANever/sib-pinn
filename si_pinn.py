@@ -60,19 +60,8 @@ class DenseSeparated(tf.keras.layers.Layer):
     #    output_shape[-1] *= 3
     #    return output_shape
 
-class WaveBasis(tf.keras.layers.Layer):
-    def __init__(self, f_in, **kwargs):
-        super().__init__(**kwargs)
-        self.f_in = f_in
-        self.f_out = f_in*3
-            
-    def call(self, inputs):
-        return tf.keras.layers.Concatenate(axis=1)([inputs, tf.math.pow(inputs,2), tf.math.cos(inputs)])
 
-    def compute_output_shape(self, input_shape):
-        output_shape = list(input_shape)
-        output_shape[-1] *= self.f_out
-        return output_shape
+
 
 class WaveAct(tf.keras.layers.Layer):
     def __init__(self, **kwargs):
@@ -266,7 +255,7 @@ class SI_PINN(tf.keras.Sequential):
 
         # build a network
         self.num_subnets = 1
-        self.add(DenseSeparated(self.num_subnets, self.f_hid, activation=self.act_func))
+        #self.add(DenseSeparated(self.num_subnets, self.f_hid, activation=self.act_func))
         
         self.add(WaveBasis(f_in=self.f_hid))
         for _ in range(self.depth):

@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from config_gpu import config_gpu
 from pinn_base import PINN
-from si_pinn import SI_PINN
+from si_pinn import SI_PINN_exp
 from utils import (
     make_logger,
     write_logger,
@@ -167,4 +167,4 @@ def train1d(filename, model_class, output_dir=""):
             
 if __name__ == "__main__":
     config_gpu(flag=0, verbose=True)
-    train1d(filename="./settings/simplest-sir-mfg.yaml", model_class=PINN, output_dir="/simplest-sir/si_pinn")
+    train1d(filename="./settings/simplest-sir-mfg.yaml", model_class=SI_PINN_exp, output_dir="/simplest-sir/si_pinn")
