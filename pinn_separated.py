@@ -18,21 +18,17 @@ class Separator(tf.keras.layers.Layer):
         self.f_out = input_shape[-1]*self.multiplier
 
     def call(self, inputs):
-        return tf.reshape(tf.keras.ops.repeat(tf.inputs, self.multiplier) (len(tf.inputs), self.multiplier))
+        #shape = (*inputs.shape, self.multiplier)
+        return tf.reshape(tf.keras.ops.repeat(inputs, self.multiplier, axis=-1), (*inputs.shape, self.multiplier))#, tf.reshape(..., (inputs.shape[-1], self.multiplier))
     
     def compute_output_shape(self, input_shape):
         return (*input_shape, self.multiplier)
         
 class Combinator(tf.keras.layers.Layer):
-    def __init__(self, outputs_lens, **kwargs):
+    def __init__(self, selection_matrix, **kwargs):
         super().__init__(**kwargs)
-        self.outputs_lens = outputs_lens
-        n = tf.math.reduce_max(outputs_lens, axis=0)
-        self.num_outputs = tf.math.reduce_sum(outputs_lens, axis=0)
-        v = []
-        for i, _len in enumerate(outputs_lens):
-            v = v + list((np.array(range(_len)) + n*i))
-        self.selection_matrix = tf.one_hot(v, n*len(outputs_lens))
+        self.selection_matrix = selection_matrix
+        self.num_outputs = selection_matrix.shape[-1]
         
     def build(self, input_shape):
         self.kernel = self.add_weight(name="kernel",
@@ -56,20 +52,23 @@ class DenseSeparated(tf.keras.layers.Layer):
     
     def build(self, input_shape):
         self.kernel = self.add_weight(name="kernel",
-                                  shape=(*input_shape, self.num_outputs),
-                                  initializer='glorot_uniform',
-                                  trainable=True)
-                                         
-        self.bias = self.add_weight(name="bias", shape=(*input_shape[:-1], self.num_outputs),
-                                 initializer='zeros',
-                                 trainable=True)
+                                    shape = (self.num_outputs, input_shape[1]),
+                                    #shape=(*input_shape[1:], self.num_outputs),
+                                    initializer='glorot_uniform',
+                                    trainable=True)
+
+        self.bias = self.add_weight(name="bias", 
+                                    shape=(self.num_outputs, input_shape[-1]),
+                                    initializer='zeros',
+                                    trainable=True)
 
     def call(self, inputs):
-        return self.act(tf.matmul(inputs, self.kernel) + self.bias)
+        #return self.activation(tf.matmul(inputs, self.kernel))# + self.bias)
+        return self.activation(keras.ops.matmul(self.kernel, inputs) + self.bias)
 
     def compute_output_shape(self, input_shape):
         output_shape = list(input_shape)
-        output_shape[-1] = self.num_outputs
+        output_shape[1] = self.num_outputs
         return output_shape
 
 class PINN_SEP(PINN_BASE):
@@ -92,7 +91,16 @@ class PINN_SEP(PINN_BASE):
         
         outs = [2,3,1]
         multiplier = len(outs)
+        
+        n = np.max(outs, axis=0)
+        num_outputs = np.sum(outs, axis=0)
+        v = []
+        for i, _len in enumerate(outs):
+            v = v + list((np.array(range(_len)) + n*i))
+        selection_matrix = tf.one_hot(v, n*len(outs))
+        
+        
         self.add(Separator(multiplier))
         for _ in range(self.depth):
             self.add(DenseSeparated(self.f_hid, activation=self.act_func))
-        self.add(Combinator(outs))
+        self.add(Combinator(selection_matrix))
