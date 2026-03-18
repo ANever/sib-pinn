@@ -28,16 +28,15 @@ class Combinator(tf.keras.layers.Layer):
         super().__init__(**kwargs)
         self.outputs_lens = outputs_lens
         n = tf.math.reduce_max(outputs_lens, axis=0)
-        self.num_output = tf.math.reduce_sum(outputs_lens, axis=0)
+        self.num_outputs = tf.math.reduce_sum(outputs_lens, axis=0)
         v = []
         for i, _len in enumerate(outputs_lens):
             v = v + list((np.array(range(_len)) + n*i))
         self.selection_matrix = tf.one_hot(v, n*len(outputs_lens))
         
     def build(self, input_shape):
-        self.kernel = self.add_weight("kernel",
-                                  shape=tuple((*input_shape,
-                                         self.num_outputs)), # here input_shape[-1] are active variables
+        self.kernel = self.add_weight(name="kernel",
+                                  shape=(*input_shape, self.num_outputs), # here input_shape[-1] are active variables
                                   initializer='glorot_uniform',
                                   trainable=True)
         
@@ -45,7 +44,7 @@ class Combinator(tf.keras.layers.Layer):
         return tf.matmul(keras.ops.ravel(tf.matmul(inputs, self.kernel)), self.selection_matrix)
     
     def compute_output_shape(self, input_shape):
-        return tuple(self.num_output)
+        return (self.num_outputs,)
         
 
 
@@ -56,12 +55,12 @@ class DenseSeparated(tf.keras.layers.Layer):
         self.activation = tf.keras.activations.get(activation)
     
     def build(self, input_shape):
-        self.kernel = self.add_weight("kernel",
-                                  shape=tuple((*input_shape, self.num_outputs)),
+        self.kernel = self.add_weight(name="kernel",
+                                  shape=(*input_shape, self.num_outputs),
                                   initializer='glorot_uniform',
                                   trainable=True)
                                          
-        self.bias = self.add_weight(shape=tuple((*input_shape[:-1], self.num_outputs)),
+        self.bias = self.add_weight(name="bias", shape=(*input_shape[:-1], self.num_outputs),
                                  initializer='zeros',
                                  trainable=True)
 
