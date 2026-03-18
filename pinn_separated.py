@@ -14,9 +14,6 @@ class Separator(tf.keras.layers.Layer):
         super().__init__(**kwargs)
         self.multiplier = multiplier
         
-    def build(self, input_shape):
-        self.f_out = input_shape[-1]*self.multiplier
-
     def call(self, inputs):
         repeated_inputs = tf.keras.ops.repeat(inputs, self.multiplier, axis=-1)
         return tf.reshape(repeated_inputs, (*inputs.shape, self.multiplier))
@@ -28,18 +25,16 @@ class Combinator(tf.keras.layers.Layer):
     def __init__(self, selection_matrix, **kwargs):
         super().__init__(**kwargs)
         self.selection_matrix = selection_matrix
-        self.num_outputs = selection_matrix.shape[-1]
+        self.num_outputs = selection_matrix.shape[1]
         
     def build(self, input_shape):
         self.kernel = self.add_weight(name="kernel",
-                                  shape=(int(self.num_outputs/input_shape[-1]), input_shape[-2]),
+                                  shape=(self.num_outputs, *input_shape[1:]),
                                   initializer='glorot_uniform',
                                   trainable=True)
         
     def call(self, inputs):
-        self.shape = (inputs.shape[0], self.num_outputs)
-        pre_raveled = tf.reshape(keras.ops.matmul(self.kernel, inputs), self.shape)
-        return keras.ops.matmul(pre_raveled, tf.transpose(self.selection_matrix))
+        return keras.ops.matmul(tf.tensordot(inputs, self.kernel, axes=[[1,2], [1,2]]), tf.transpose(self.selection_matrix))
     
     def compute_output_shape(self, input_shape):
         return (input_shape[0], self.num_outputs)
@@ -89,7 +84,7 @@ class PINN_SEP(PINN_BASE):
         self.b_init = b_init  # bias initialization
         self.model_name = "pinn_sep"
         
-        outs = [2,3,1]
+        outs = [2,2,1]
         multiplier = len(outs)
         
         n = np.max(outs, axis=0)
@@ -98,8 +93,8 @@ class PINN_SEP(PINN_BASE):
         for i, _len in enumerate(outs):
             v = v + list((np.array(range(_len)) + n*i))
         selection_matrix = tf.one_hot(v, n*len(outs))
-        
-        
+        num_semi_outputs = int(selection_matrix.shape[-1]/multiplier)
+        print(selection_matrix)
         self.add(Separator(multiplier))
         for _ in range(self.depth):
             self.add(DenseSeparated(self.f_hid, activation=self.act_func))

@@ -4,8 +4,8 @@ ARGS:
   patience: 2000
 
 MODEL:
-  f_hid: 5
-  depth: 20
+  f_hid: 4
+  depth: 10
   in_lb: '[-1.]'
   in_ub: '[1.]'
   act: tanh
