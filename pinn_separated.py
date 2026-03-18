@@ -18,8 +18,8 @@ class Separator(tf.keras.layers.Layer):
         self.f_out = input_shape[-1]*self.multiplier
 
     def call(self, inputs):
-        #shape = (*inputs.shape, self.multiplier)
-        return tf.reshape(tf.keras.ops.repeat(inputs, self.multiplier, axis=-1), (*inputs.shape, self.multiplier))#, tf.reshape(..., (inputs.shape[-1], self.multiplier))
+        repeated_inputs = tf.keras.ops.repeat(inputs, self.multiplier, axis=-1)
+        return tf.reshape(repeated_inputs, (*inputs.shape, self.multiplier))
     
     def compute_output_shape(self, input_shape):
         return (*input_shape, self.multiplier)
@@ -32,17 +32,17 @@ class Combinator(tf.keras.layers.Layer):
         
     def build(self, input_shape):
         self.kernel = self.add_weight(name="kernel",
-                                  shape=(*input_shape, self.num_outputs), # here input_shape[-1] are active variables
+                                  shape=(int(self.num_outputs/input_shape[-1]), input_shape[-2]),
                                   initializer='glorot_uniform',
                                   trainable=True)
         
     def call(self, inputs):
-        return tf.matmul(keras.ops.ravel(tf.matmul(inputs, self.kernel)), self.selection_matrix)
+        self.shape = (inputs.shape[0], self.num_outputs)
+        pre_raveled = tf.reshape(keras.ops.matmul(self.kernel, inputs), self.shape)
+        return keras.ops.matmul(pre_raveled, tf.transpose(self.selection_matrix))
     
     def compute_output_shape(self, input_shape):
-        return (self.num_outputs,)
-        
-
+        return (input_shape[0], self.num_outputs)
 
 class DenseSeparated(tf.keras.layers.Layer):
     def __init__(self, num_outputs, activation=None, **kwargs):  #activation=None
