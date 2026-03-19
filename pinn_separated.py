@@ -9,6 +9,11 @@ import numpy as np
 from pinn_base import PINN_BASE
 from pinn_wave import WaveBasis
 
+from tensorflow.keras.layers import RepeatVector
+
+
+
+'''
 class Separator(tf.keras.layers.Layer):
     def __init__(self, multiplier, **kwargs):
         super().__init__(**kwargs)
@@ -20,7 +25,8 @@ class Separator(tf.keras.layers.Layer):
     
     def compute_output_shape(self, input_shape):
         return (*input_shape, self.multiplier)
-        
+'''
+
 class Combinator(tf.keras.layers.Layer):
     def __init__(self, selection_matrix, **kwargs):
         super().__init__(**kwargs)
@@ -47,19 +53,20 @@ class DenseSeparated(tf.keras.layers.Layer):
     
     def build(self, input_shape):
         self.kernel = self.add_weight(name="kernel",
-                                    shape = (self.num_outputs, input_shape[1]),
-                                    #shape=(*input_shape[1:], self.num_outputs),
+                                    shape = (self.num_outputs, input_shape[1], input_shape[2]),
                                     initializer='glorot_uniform',
                                     trainable=True)
 
-        self.bias = self.add_weight(name="bias", 
-                                    shape=(self.num_outputs, input_shape[-1]),
+        self.bias = self.add_weight(name="bias",
+                                    shape=(self.num_outputs, input_shape[2]),
                                     initializer='zeros',
                                     trainable=True)
 
     def call(self, inputs):
         #return self.activation(tf.matmul(inputs, self.kernel))# + self.bias)
-        return self.activation(keras.ops.matmul(self.kernel, inputs) + self.bias)
+        return self.activation(keras.ops.add(tf.tensordot(self.kernel, inputs), self.bias))
+        #rewrite it to be convolution of inputs of [1,2] 
+        #return self.activation(keras.ops.add(keras.ops.matmul(self.kernel, inputs), self.bias))
 
     def compute_output_shape(self, input_shape):
         output_shape = list(input_shape)
@@ -84,7 +91,8 @@ class PINN_SEP(PINN_BASE):
         self.b_init = b_init  # bias initialization
         self.model_name = "pinn_sep"
         
-        outs = [2,2,1]
+        #outs = [2,2,1]
+        outs = [5]
         multiplier = len(outs)
         
         n = np.max(outs, axis=0)
@@ -93,9 +101,11 @@ class PINN_SEP(PINN_BASE):
         for i, _len in enumerate(outs):
             v = v + list((np.array(range(_len)) + n*i))
         selection_matrix = tf.one_hot(v, n*len(outs))
-        num_semi_outputs = int(selection_matrix.shape[-1]/multiplier)
-        print(selection_matrix)
-        self.add(Separator(multiplier))
+        
+        self.add(WaveBasis())
+        #self.add(Separator(multiplier))
+        self.add(RepeatVector(multiplier))
+        #self.add(keras.layers.Permute((2, 1))) #temporary TODO get rid of this (rework DenseSeparated)
         for _ in range(self.depth):
             self.add(DenseSeparated(self.f_hid, activation=self.act_func))
         self.add(Combinator(selection_matrix))
