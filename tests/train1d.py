@@ -3,6 +3,7 @@
 training
 ********************************************************************************
 """
+
 import os
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import time
@@ -12,12 +13,12 @@ import tensorflow as tf
 import pickle
 from tqdm import tqdm
 
-from config_gpu import config_gpu
-from pinn_base import PINN
-#from si_pinn import SI_PINN_exp
-from pinn_wave import PINN_WAVE
-from pinn_separated import PINN_SEP
-from utils import (
+from sibpinn.config_gpu import config_gpu
+from sibpinn.pinn.base import PINN
+
+from sibpinn.pinn.separated import PINN_SEP
+
+from sibpinn.utils import (
     make_logger,
     write_logger,
     eval_dict,

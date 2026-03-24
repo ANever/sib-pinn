@@ -1,12 +1,13 @@
 import os
 import warnings
-warnings.filterwarnings("ignore")
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow_probability as tfp
 
-from pinn_base import PINN_BASE
+from .base import PINN_BASE
+
+warnings.filterwarnings("ignore")
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
 class WaveBasis(tf.keras.layers.Layer):
     def __init__(self, **kwargs):

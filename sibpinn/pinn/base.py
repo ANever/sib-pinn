@@ -4,7 +4,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 import tensorflow.keras as keras
 
-from utils import eval_dict, replace_words
+from ..utils import eval_dict, replace_words
 #from lbfgs import lbfgs_minimize, set_LBFGS_options
 
 class PINN_BASE(tf.keras.Sequential):

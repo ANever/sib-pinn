@@ -1,17 +1,16 @@
 import os
 import warnings
-warnings.filterwarnings("ignore")
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow_probability as tfp
 import numpy as np
-from pinn_base import PINN_BASE
-from pinn_wave import WaveBasis
-
 from tensorflow.keras.layers import RepeatVector
 
+from .base import PINN_BASE
+from .wave import WaveBasis
 
+warnings.filterwarnings("ignore")
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
 '''
 class Separator(tf.keras.layers.Layer):

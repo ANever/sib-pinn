@@ -1,5 +1,5 @@
 matplotlib
 pyyaml
-cudatoolkit
-cudnn
+cuda-toolkit
+#cudnn
 tensorflow
