@@ -29,17 +29,20 @@ class Separator(tf.keras.layers.Layer):
 class Combinator(tf.keras.layers.Layer):
     def __init__(self, selection_matrix, **kwargs):
         super().__init__(**kwargs)
-        self.selection_matrix = selection_matrix
-        self.num_outputs = selection_matrix.shape[1]
+        self.num_outputs = selection_matrix.shape[-1]
+        self.selection_matrix = (selection_matrix)
         
     def build(self, input_shape):
+        self.out_shape = (input_shape[0], input_shape[-1]*input_shape[-2])
         self.kernel = self.add_weight(name="kernel",
-                                  shape=(self.num_outputs, *input_shape[1:]),
+                                  shape=(self.out_shape[-1], self.num_outputs),
                                   initializer='glorot_uniform',
                                   trainable=True)
         
     def call(self, inputs):
-        return keras.ops.matmul(tf.tensordot(inputs, self.kernel, axes=[[1,2], [1,2]]), tf.transpose(self.selection_matrix))
+        #return keras.ops.matmul(tf.tensordot(inputs, self.kernel, axes=[[1,2], [1,2]]), (self.selection_matrix))
+        mat = keras.ops.matmul(tf.keras.ops.reshape(inputs, self.out_shape), self.kernel)
+        return keras.ops.matmul(mat, self.selection_matrix)
     
     def compute_output_shape(self, input_shape):
         return (input_shape[0], self.num_outputs)
@@ -51,25 +54,37 @@ class DenseSeparated(tf.keras.layers.Layer):
         self.activation = tf.keras.activations.get(activation)
     
     def build(self, input_shape):
+        #self.kernel = self.add_weight(name="kernel",
+        #                            shape = (self.num_outputs, input_shape[1], input_shape[2]),
+        #                            initializer='glorot_uniform',
+        #                            trainable=True)
+
+        #self.bias = self.add_weight(name="bias",
+        #                            shape=(self.num_outputs, input_shape[2]),
+        #                            initializer='zeros',
+        #                            trainable=True)
+                                    
         self.kernel = self.add_weight(name="kernel",
-                                    shape = (self.num_outputs, input_shape[1], input_shape[2]),
+                                    shape = (input_shape[-2], input_shape[-1], self.num_outputs),
                                     initializer='glorot_uniform',
                                     trainable=True)
 
         self.bias = self.add_weight(name="bias",
-                                    shape=(self.num_outputs, input_shape[2]),
+                                    shape=(input_shape[-2], self.num_outputs),
                                     initializer='zeros',
                                     trainable=True)
 
     def call(self, inputs):
         #return self.activation(tf.matmul(inputs, self.kernel))# + self.bias)
-        return self.activation(keras.ops.add(tf.tensordot(self.kernel, inputs), self.bias))
-        #rewrite it to be convolution of inputs of [1,2] 
-        #return self.activation(keras.ops.add(keras.ops.matmul(self.kernel, inputs), self.bias))
+        #return self.activation(keras.ops.add(tf.tensordot(self.kernel, inputs, axes=[1]), self.bias))
+        #                           ???     tf.keras.ops.tensordot  ???
+        
+        return self.activation(keras.ops.add(keras.ops.matmul(inputs, self.kernel), self.bias))
 
     def compute_output_shape(self, input_shape):
         output_shape = list(input_shape)
-        output_shape[1] = self.num_outputs
+        #output_shape[1] = self.num_outputs
+        output_shape[-1] = self.num_outputs
         return output_shape
 
 class PINN_SEP(PINN_BASE):
@@ -101,7 +116,7 @@ class PINN_SEP(PINN_BASE):
             v = v + list((np.array(range(_len)) + n*i))
         selection_matrix = tf.one_hot(v, n*len(outs))
         
-        self.add(WaveBasis())
+        #self.add(WaveBasis())
         #self.add(Separator(multiplier))
         self.add(RepeatVector(multiplier))
         #self.add(keras.layers.Permute((2, 1))) #temporary TODO get rid of this (rework DenseSeparated)

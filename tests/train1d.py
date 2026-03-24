@@ -76,7 +76,6 @@ def from_file(filename, model_class):
         _x[i] = tf.linspace(in_lb[i], in_ub[i], ns["nx"][i])
     _x = (tf.meshgrid(*_x))
 
-    
     x = [0]*len(_x)
     for i in range(len(var_names)):
         x[i] = tf.reshape(_x[i],(-1,1))
@@ -90,9 +89,12 @@ def train1d(filename, model_class, output_dir=""):
     # run hyperparameters args
     logger_path = make_logger("seed: in model", output_dir=output_dir)
     
+    var_names = settings["IN_VAR_NAMES"]
+    func_names = settings["OUT_VAR_NAMES"]
+    
     args = eval_dict(settings["ARGS"])
     
-    # # ======outputs=======
+    # ======outputs=======
     
     losses_logs = np.empty((len(conds.keys()), 1))
 
