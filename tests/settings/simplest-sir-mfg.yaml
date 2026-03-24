@@ -1,5 +1,5 @@
 ARGS:
-  epochs: 15000
+  epochs: 50
   batch_size: -1
   patience: 2000
 
@@ -67,10 +67,10 @@ CONDS:
      point_area: '[[tmax, tmax]]'
      N: 1e2
 
-  data:
-     raw_data_condition: True
-     eq_string: S
-     filename: colloc_solution_S.pkl
+  #data:
+  #   raw_data_condition: True
+  #   eq_string: S
+  #   filename: colloc_solution_S.pkl
      #right_side: 0*vars[:, 0] , 0*vars[:, 0]
      #point_area: '[[tmax, tmax]]'
      #N: 1e2

@@ -4,7 +4,7 @@ import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow_probability as tfp
 import numpy as np
-from tensorflow.keras.layers import RepeatVector
+from tensorflow.keras.layers import RepeatVector, Reshape, Flatten
 
 from .base import PINN_BASE
 from .wave import WaveBasis
@@ -47,6 +47,25 @@ class Combinator(tf.keras.layers.Layer):
     def compute_output_shape(self, input_shape):
         return (input_shape[0], self.num_outputs)
 
+class Choice(tf.keras.layers.Layer):
+    def __init__(self, selection_matrix, **kwargs):
+        super().__init__(**kwargs)
+        self.num_outputs = selection_matrix.shape[-1]
+        self.selection_matrix = selection_matrix
+        
+    def build(self, input_shape):
+        self.kernel = self.add_weight(name="kernel",
+                                  shape=(input_shape[-1], self.num_outputs),
+                                  initializer='glorot_uniform',
+                                  trainable=True)
+
+    def call(self, inputs):
+        mat = keras.ops.matmul(inputs, self.kernel)
+        return keras.ops.matmul(mat, self.selection_matrix)
+    
+    def compute_output_shape(self, input_shape):
+        return (input_shape[0], self.num_outputs)
+        
 class DenseSeparated(tf.keras.layers.Layer):
     def __init__(self, num_outputs, activation=None, **kwargs):  #activation=None
         super().__init__(**kwargs)
@@ -54,16 +73,6 @@ class DenseSeparated(tf.keras.layers.Layer):
         self.activation = tf.keras.activations.get(activation)
     
     def build(self, input_shape):
-        #self.kernel = self.add_weight(name="kernel",
-        #                            shape = (self.num_outputs, input_shape[1], input_shape[2]),
-        #                            initializer='glorot_uniform',
-        #                            trainable=True)
-
-        #self.bias = self.add_weight(name="bias",
-        #                            shape=(self.num_outputs, input_shape[2]),
-        #                            initializer='zeros',
-        #                            trainable=True)
-                                    
         self.kernel = self.add_weight(name="kernel",
                                     shape = (input_shape[-2], input_shape[-1], self.num_outputs),
                                     initializer='glorot_uniform',
@@ -75,10 +84,6 @@ class DenseSeparated(tf.keras.layers.Layer):
                                     trainable=True)
 
     def call(self, inputs):
-        #return self.activation(tf.matmul(inputs, self.kernel))# + self.bias)
-        #return self.activation(keras.ops.add(tf.tensordot(self.kernel, inputs, axes=[1]), self.bias))
-        #                           ???     tf.keras.ops.tensordot  ???
-        
         return self.activation(keras.ops.add(keras.ops.matmul(inputs, self.kernel), self.bias))
 
     def compute_output_shape(self, input_shape):
@@ -116,10 +121,11 @@ class PINN_SEP(PINN_BASE):
             v = v + list((np.array(range(_len)) + n*i))
         selection_matrix = tf.one_hot(v, n*len(outs))
         
-        #self.add(WaveBasis())
-        #self.add(Separator(multiplier))
+        self.add(WaveBasis())
         self.add(RepeatVector(multiplier))
-        #self.add(keras.layers.Permute((2, 1))) #temporary TODO get rid of this (rework DenseSeparated)
         for _ in range(self.depth):
             self.add(DenseSeparated(self.f_hid, activation=self.act_func))
-        self.add(Combinator(selection_matrix))
+        #self.add(Reshape((self.f_hid*multiplier,)))
+        self.add(Flatten())
+        self.add(Choice(selection_matrix))
+        

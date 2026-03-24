@@ -4,6 +4,7 @@
 *.pkl
 
 tests/results/
+tests/logdir/
 
 *.py[cod]
 *$py.class

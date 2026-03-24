@@ -17,6 +17,7 @@ from sibpinn.config_gpu import config_gpu
 from sibpinn.pinn.base import PINN
 
 from sibpinn.pinn.separated import PINN_SEP
+from sibpinn.pinn.wave import PINN_WAVE
 
 from sibpinn.utils import (
     make_logger,
@@ -107,7 +108,12 @@ def train1d(filename, model_class, output_dir=""):
     # print("START TRAINING")
     N = int(args["epochs"])
     pbar = tqdm(range(N), total=N, desc="N")
+    tboard_callback = tf.keras.callbacks.TensorBoard(log_dir = 'logdir',
+                                                 histogram_freq = 1,)
+                                                 
     for epoch in pbar:
+        #if epoch==2:
+        #    tf.profiler.experimental.start('logdir')
         loss_glb, losses = model.train(conditions, cond_string)
         losses_logs = np.append(losses_logs, np.expand_dims(losses, axis=0).T, axis=1)
         t1 = time.perf_counter()
@@ -154,6 +160,7 @@ def train1d(filename, model_class, output_dir=""):
                             labels=list(conds.keys()), 
                             file_extension=file_extension,
                             output_dir=output_dir,)
+    #tf.profiler.experimental.stop()
     for title in func_names:
         to_gif(["./results" + output_dir + "/comparison_" + title + "_" + str(ep) + "." + file_extension \
                      for ep in range(1000, (epoch // 1000 + 1) * 1000, 1000)],
@@ -164,4 +171,4 @@ def train1d(filename, model_class, output_dir=""):
             
 if __name__ == "__main__":
     config_gpu(flag=0, verbose=True)
-    train1d(filename="./settings/simplest-sir-mfg.yaml", model_class=PINN_SEP, output_dir="/simplest-sir/si_pinn")
+    train1d(filename="./settings/simplest-sir-mfg.yaml", model_class=PINN_WAVE, output_dir="/simplest-sir/si_pinn")
