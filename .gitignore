@@ -1,6 +1,7 @@
 *.eps
 *.pdf
 *.png
+*.pkl
 
 results/
 grid_configs/
