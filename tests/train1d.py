@@ -28,19 +28,10 @@ from sibpinn.utils import (
     to_gif
 )
 
-#tf.config.run_functions_eagerly(True)
-
-def train1d(filename, model_class, output_dir=""):
-    # read settings
+def from_file(filename, model_class):
     with open(filename, mode="r") as file:
         settings = yaml.safe_load(file)
-
-    # run hyperparameters args
-    logger_path = make_logger("seed: in model", output_dir=output_dir)
-    args = eval_dict(settings["ARGS"])
-
-    # ======model=======
-
+    
     model_args = eval_dict(settings["MODEL"], {"tf": tf, "": np})
 
     for key in model_args.keys():
@@ -57,15 +48,13 @@ def train1d(filename, model_class, output_dir=""):
         var_names=var_names,
         out_var_names=func_names,
     )
-
-    # print("INIT DONE")
-
+    
+    #TODO rewrite it to be for all variations of dimentions
     in_lb = model_args["in_lb"]
     tmin = in_lb[0]
     in_ub = model_args["in_ub"]
     tmax = in_ub[0]
-    # ======conditions=======
-
+    
     conds = eval_dict(settings["CONDS"], locals() | {"tf": tf} | model.custom_vars, 1)
     conditions = []
     for key in list(conds.keys()):
@@ -79,10 +68,9 @@ def train1d(filename, model_class, output_dir=""):
     cond_string = compile("(" + "".join(cond_string) + ")", '<string>', 'eval')
     
     model.init_dynamical_normalisation(len(conditions))
-
-    # # ======outputs=======
-
+    
     ns = eval_dict(settings["NS"])
+    var_names = settings["IN_VAR_NAMES"]
     _x = [0] * len(var_names)
     for i in range(len(var_names)):
         _x[i] = tf.linspace(in_lb[i], in_ub[i], ns["nx"][i])
@@ -93,10 +81,19 @@ def train1d(filename, model_class, output_dir=""):
     for i in range(len(var_names)):
         x[i] = tf.reshape(_x[i],(-1,1))
     x_ref = tf.transpose(tf.cast(x, dtype=tf.float32))[0]
-    u_ref = tf.cast(np.zeros(ns['nx']).reshape(-1, 1), dtype=tf.float32)
-    exact = tf.cast(model.custom_vars["exact"](x_ref,None), dtype=tf.float32)
     
-    # log
+    return x_ref, conds, conditions, cond_string, settings, model
+    
+def train1d(filename, model_class, output_dir=""):
+    # read settings
+    x_ref, conds, conditions, cond_string, settings, model = from_file(filename, model_class)
+    # run hyperparameters args
+    logger_path = make_logger("seed: in model", output_dir=output_dir)
+    
+    args = eval_dict(settings["ARGS"])
+    
+    # # ======outputs=======
+    
     losses_logs = np.empty((len(conds.keys()), 1))
 
     # training
@@ -105,14 +102,9 @@ def train1d(filename, model_class, output_dir=""):
     loss_save = tf.constant(1e20)
     t0 = time.perf_counter()
 
-    cond_string_here = [
-       "model.loss_(*conditions[" + str(i) + "])," for i in range(len(conditions))
-    ]
-    cond_string_here = "(" + "".join(cond_string_here) + ")"
-
     # print("START TRAINING")
     N = int(args["epochs"])
-    pbar = tqdm(range(N),total=N, desc="N")
+    pbar = tqdm(range(N), total=N, desc="N")
     for epoch in pbar:
         loss_glb, losses = model.train(conditions, cond_string)
         losses_logs = np.append(losses_logs, np.expand_dims(losses, axis=0).T, axis=1)
@@ -144,9 +136,9 @@ def train1d(filename, model_class, output_dir=""):
             plot_commons = {
                 "epoch": epoch,
                 "x": x_ref[:, 0],
-                "y": None,#x_ref[:, 1],
+                "y": None, #x_ref[:, 1],
                 "xlabel": var_names[0],
-                "ylabel": None,#var_names[1],
+                "ylabel": None, #var_names[1],
             }
             for func, title in zip(u_n, func_names):
                 plot_comparison1d(u_inf=func, 
