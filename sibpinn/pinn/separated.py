@@ -5,6 +5,7 @@ import tensorflow.keras as keras
 import tensorflow_probability as tfp
 import numpy as np
 from tensorflow.keras.layers import RepeatVector, Reshape, Flatten
+import tensorflow.keras.ops as ops
 
 from .base import PINN_BASE
 from .wave import WaveBasis
@@ -19,12 +20,12 @@ class Separator(tf.keras.layers.Layer):
         self.multiplier = multiplier
         
     def call(self, inputs):
-        repeated_inputs = tf.keras.ops.repeat(inputs, self.multiplier, axis=-1)
+        repeated_inputs = ops.repeat(inputs, self.multiplier, axis=-1)
         return tf.reshape(repeated_inputs, (*inputs.shape, self.multiplier))
     
     def compute_output_shape(self, input_shape):
         return (*input_shape, self.multiplier)
-'''
+
 
 class Combinator(tf.keras.layers.Layer):
     def __init__(self, selection_matrix, **kwargs):
@@ -40,12 +41,13 @@ class Combinator(tf.keras.layers.Layer):
                                   trainable=True)
         
     def call(self, inputs):
-        #return keras.ops.matmul(tf.tensordot(inputs, self.kernel, axes=[[1,2], [1,2]]), (self.selection_matrix))
-        mat = keras.ops.matmul(tf.keras.ops.reshape(inputs, self.out_shape), self.kernel)
-        return keras.ops.matmul(mat, self.selection_matrix)
+        #return ops.matmul(tf.tensordot(inputs, self.kernel, axes=[[1,2], [1,2]]), (self.selection_matrix))
+        mat = ops.matmul(ops.reshape(inputs, self.out_shape), self.kernel)
+        return ops.matmul(mat, self.selection_matrix)
     
     def compute_output_shape(self, input_shape):
         return (input_shape[0], self.num_outputs)
+'''
 
 class Choice(tf.keras.layers.Layer):
     def __init__(self, selection_matrix, **kwargs):
@@ -60,8 +62,8 @@ class Choice(tf.keras.layers.Layer):
                                   trainable=True)
 
     def call(self, inputs):
-        mat = keras.ops.matmul(inputs, self.kernel)
-        return keras.ops.matmul(mat, self.selection_matrix)
+        mat = ops.matmul(inputs, self.kernel)
+        return ops.matmul(mat, self.selection_matrix)
     
     def compute_output_shape(self, input_shape):
         return (input_shape[0], self.num_outputs)
@@ -74,26 +76,27 @@ class DenseSeparated(tf.keras.layers.Layer):
     
     def build(self, input_shape):
         self.kernel = self.add_weight(name="kernel",
-                                    shape = (input_shape[-2], input_shape[-1], self.num_outputs),
+                                    shape = (input_shape[-2], self.num_outputs, input_shape[-1]),
                                     initializer='glorot_uniform',
                                     trainable=True)
-
         self.bias = self.add_weight(name="bias",
                                     shape=(input_shape[-2], self.num_outputs),
                                     initializer='zeros',
                                     trainable=True)
-
     def call(self, inputs):
-        return self.activation(keras.ops.add(keras.ops.matmul(inputs, self.kernel), self.bias))
+        #return self.activation(ops.add(ops.matmul(inputs, self.kernel), self.bias))
+        b = ops.expand_dims(inputs, axis=-1)
+        y = ops.squeeze(ops.matmul(self.kernel, b), axis=-1)#tf.linalg.matvec(self.kernel, inputs)
+        tf.print(y.shape)
+        return self.activation(ops.add(y, self.bias))
 
     def compute_output_shape(self, input_shape):
         output_shape = list(input_shape)
-        #output_shape[1] = self.num_outputs
         output_shape[-1] = self.num_outputs
         return output_shape
 
 class PINN_SEP(PINN_BASE):
-    def __init__(  
+    def __init__(
         self,
         f_hid,
         depth,
@@ -111,7 +114,8 @@ class PINN_SEP(PINN_BASE):
         self.model_name = "pinn_sep"
         
         #outs = [2,2,1]
-        outs = [5]
+        #outs = [5]
+        outs = [2,2,2]
         multiplier = len(outs)
         
         n = np.max(outs, axis=0)
@@ -123,9 +127,9 @@ class PINN_SEP(PINN_BASE):
         
         self.add(WaveBasis())
         self.add(RepeatVector(multiplier))
+        #self.add(Reshape((multiplier,1,3)))
         for _ in range(self.depth):
             self.add(DenseSeparated(self.f_hid, activation=self.act_func))
-        #self.add(Reshape((self.f_hid*multiplier,)))
         self.add(Flatten())
         self.add(Choice(selection_matrix))
         

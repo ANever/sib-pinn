@@ -108,12 +108,11 @@ def train1d(filename, model_class, output_dir=""):
     # print("START TRAINING")
     N = int(args["epochs"])
     pbar = tqdm(range(N), total=N, desc="N")
-    tboard_callback = tf.keras.callbacks.TensorBoard(log_dir = 'logdir',
-                                                 histogram_freq = 1,)
+    #tboard_callback = tf.keras.callbacks.TensorBoard(log_dir = 'logdir',
+    #                                             histogram_freq = 1,)
                                                  
     for epoch in pbar:
-        #if epoch==2:
-        #    tf.profiler.experimental.start('logdir')
+        #tf.profiler.experimental.start('logdir')
         loss_glb, losses = model.train(conditions, cond_string)
         losses_logs = np.append(losses_logs, np.expand_dims(losses, axis=0).T, axis=1)
         t1 = time.perf_counter()
@@ -171,4 +170,5 @@ def train1d(filename, model_class, output_dir=""):
             
 if __name__ == "__main__":
     config_gpu(flag=0, verbose=True)
-    train1d(filename="./settings/simplest-sir-mfg.yaml", model_class=PINN_WAVE, output_dir="/simplest-sir/si_pinn")
+    #tf.debugging.set_log_device_placement(True)
+    train1d(filename="./settings/simplest-sir-mfg.yaml", model_class=PINN_SEP, output_dir="/simplest-sir/si_pinn")

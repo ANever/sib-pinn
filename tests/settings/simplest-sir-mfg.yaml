@@ -49,8 +49,9 @@ CONDS:
     eq_string: ' (d/dt) S + beta_max * beta(vars,u_) * S * I ,
                  (d/dt) I - beta_max * beta(vars,u_) * S * I + gamma * I ,
                  (d/dt) uS - beta_max * beta(vars,u_) * I * ( uS - uI ) + alpha(vars,u_)**2,
-                 (d/dt) uI - gamma * uI + cost_inf'
-    right_side: 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0] 
+                 (d/dt) uI - gamma * uI + cost_inf
+                 (d/dt) beta_max'
+    right_side: 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0] 
     point_area: '[[tmin, tmax]]'
     N: 1e5
   
