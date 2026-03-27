@@ -12,11 +12,12 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 class WaveBasis(tf.keras.layers.Layer):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.num_of_funcs = 3
-            
+        self.expand = lambda inputs: [inputs, tf.math.pow(inputs,2), tf.math.cos(inputs), tf.math.cos(2*inputs)]
+        self.num_of_funcs = len(self.expand(tf.constant(1.)))
+        
     def call(self, inputs):
-        return tf.keras.layers.Concatenate(axis=1)([inputs, tf.math.pow(inputs,2), tf.math.cos(inputs)])
-
+        return tf.keras.layers.concatenate(self.expand(inputs), axis=1)
+#, tf.math.cos(3*inputs), tf.math.cos(4*inputs) , tf.math.pow(inputs,3), tf.math.pow(inputs,4)
     def compute_output_shape(self, input_shape):
         output_shape = list(input_shape)
         output_shape[-1] *= self.num_of_funcs
@@ -43,5 +44,5 @@ class PINN_WAVE(PINN_BASE):
         self.add(WaveBasis())
         for _ in range(self.depth):
             self.add(keras.layers.Dense(self.f_hid, activation=self.act_func))
-        self.add(keras.layers.Dense(self.f_out))
+        self.add(keras.layers.Dense(self.f_out, activation=lambda x: x))
         

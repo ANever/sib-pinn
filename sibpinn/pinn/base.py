@@ -17,7 +17,7 @@ class PINN_BASE(tf.keras.Sequential):
         act = 'tanh',
         lr=1e-3,
         dyn_norm=None,
-        beta=0.1,
+        beta=0.2,
         seed=42,
     ):
         super().__init__()
@@ -146,7 +146,7 @@ class PINN_BASE(tf.keras.Sequential):
         return vec * self.gammas
 
     def init_dynamical_normalisation(self, num_of_losses):
-        self.gammas = tf.Variable(tf.ones(num_of_losses), tf.float32)
+        self.gammas = tf.Variable(tf.ones(num_of_losses), dtype=tf.float32, trainable=False)
 
     @tf.autograph.experimental.do_not_convert
     def update_gammas(self, grads):

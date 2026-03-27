@@ -1,18 +1,18 @@
 ARGS:
-  epochs: 50
+  epochs: 15000
   batch_size: -1
   patience: 2000
 
 MODEL:
-  f_hid: 6
+  f_hid: 20
   depth: 5
   in_lb: '[-1.]'
   in_ub: '[1.]'
   act: tanh
   seed: 42
-  lr: 0.01
-  beta: 0.01
-  dyn_norm: #"dyn_norm"
+  lr: 0.0002
+  beta: 0.1
+  dyn_norm: 'dyn_norm' #"max_avg"
   
 NS:
   nx: [100]
@@ -21,11 +21,11 @@ IN_VAR_NAMES:
  [t]
 
 OUT_VAR_NAMES:
- [S, I, uS, uI, beta_max]
+ [S, I, uS, uI] #beta_max]
 
 CUSTOM_CONSTS:
   cost_inf: 4.
-  #beta_max: 20.
+  beta_max: 20.
   gamma: 2.
   S_0: 0.7
 
@@ -33,45 +33,52 @@ CUSTOM_FUNCS:
   exact: t*0
   #beta: beta_max/(1.+tf.exp(-alpha(vars_,u_)))
   beta: 1/(1.+tf.exp(-alpha(vars_,u_)))
-  c: tf.math.abs(beta_max *( uI - uS ) *I / 2.)
-  c_sign: tf.math.sign(beta_max *( uI - uS ) *I / 2.)
+  #c: tf.math.abs(beta_max *( uI - uS ) *I / 2.)
+  c: tf.math.abs( beta_max *( uI - uS ) * I / 2.)
+  
+  c_sign: tf.math.sign( - ( uI - uS ))
+  
   #c_abs: tf.math.abs(c(vars_,u_)) #/3.
   #x**2, x**3, x**4, np.exp(-x), np.exp(-2*x))
   approximation: -6.63320111e-01 + tf.math.sqrt(c(vars_,u_)) *8.92654544e-01 - c(vars_,u_) * 6.99385982e-02 + c(vars_,u_)**2* 2.97831057e-04 - c(vars_,u_)**3 * 1.08549568e-06 + c(vars_,u_)**4*1.68015701e-09 +tf.math.exp(-c(vars_,u_))*  3.66041065e-02 + tf.math.exp(-2*c(vars_,u_))*  4.74148560e-01
   # this is an approximation of inverse function for f(x)=x(2+e^x+e^(-x))
   alpha: c_sign(vars_,u_) * approximation(vars_,u_)
+  
+  
+  
   #tfp.substrates.jax.math.find_root_secant(lambda x:2.*x*(1.+tf.math.cosh(x)) - c(vars_,u_), t*0., max_iterations=100)[0]
   #tfp.math.find_root_chandrupatla(lambda x:x*(2.+tf.exp(x)+tf.exp(-x)) - c(vars_,u_), -100.+t*0., 100.+t*0.)[0]
   #tfp.math.find_root_secant(lambda x:2.*x*(1.+tf.math.cosh(x)) - c(vars_,u_), t*0., max_iterations=100)[0]
   
 CONDS:
   pde:
-    eq_string: ' (d/dt) S + beta_max * beta(vars,u_) * S * I ,
-                 (d/dt) I - beta_max * beta(vars,u_) * S * I + gamma * I ,
-                 (d/dt) uS - beta_max * beta(vars,u_) * I * ( uS - uI ) + alpha(vars,u_)**2,
-                 (d/dt) uI - gamma * uI + cost_inf
-                 (d/dt) beta_max'
-    right_side: 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0] 
+    eq_string: '- (d/dt) S - beta_max * beta(vars,u_) * S * I ,
+                - (d/dt) I + beta_max * beta(vars,u_) * S * I - gamma * I ,
+                - (d/dt) uS + beta_max * beta(vars,u_) * I * ( uS - uI ) ,
+                - (d/dt) uI + gamma * uI - cost_inf'
+                # beta_max '
+    right_side: 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0] # 0*vars[:, 0]+20. 
     point_area: '[[tmin, tmax]]'
-    N: 1e5
-  
+    N: 20000
+   #- alpha(vars,u_)**2
   initial:
      eq_string: S , I
      right_side: 0*vars[:, 0] + S_0 , 0*vars[:, 0] + 1 - S_0
      point_area: '[[tmin, tmin]]'
-     N: 1e2
+     N: 1
      
   
   terminal:
      eq_string: uS , uI
      right_side: 0*vars[:, 0] , 0*vars[:, 0]
      point_area: '[[tmax, tmax]]'
-     N: 1e2
+     N: 1
 
   #data:
   #   raw_data_condition: True
-  #   eq_string: S
-  #   filename: colloc_solution_S.pkl
+  #   eq_string: I *10
+  #   weight: 10
+  #   filename: colloc_solution_I.pkl
      #right_side: 0*vars[:, 0] , 0*vars[:, 0]
      #point_area: '[[tmax, tmax]]'
      #N: 1e2

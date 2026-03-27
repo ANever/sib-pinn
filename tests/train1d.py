@@ -117,7 +117,7 @@ def train1d(filename, model_class, output_dir=""):
         losses_logs = np.append(losses_logs, np.expand_dims(losses, axis=0).T, axis=1)
         t1 = time.perf_counter()
         elps = t1 - t0
-        pbar.set_postfix_str(f"Loss={loss_glb}", refresh=False)
+        pbar.set_postfix_str(f"Loss={loss_glb:.6f}", refresh=False)
         losses = dict(zip(conds.keys(), losses))
         logger_data = [key + f": {losses[key]:.3e}, " for key in losses.keys()]
         logger_data = f"epoch: {epoch:d}, loss_total: {loss_glb:.3e}, " + ", ".join(
@@ -171,4 +171,4 @@ def train1d(filename, model_class, output_dir=""):
 if __name__ == "__main__":
     config_gpu(flag=0, verbose=True)
     #tf.debugging.set_log_device_placement(True)
-    train1d(filename="./settings/simplest-sir-mfg.yaml", model_class=PINN_SEP, output_dir="/simplest-sir/si_pinn")
+    train1d(filename="./settings/simplest-sir-mfg.yaml", model_class=PINN_WAVE, output_dir="/simplest-sir/si_pinn")

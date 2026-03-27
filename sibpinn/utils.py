@@ -64,7 +64,7 @@ def gen_points(num, bounds, n_vars=None):
         # points[i] = tf.expand_dims(tf.linspace(
         #     start=bounds[i][0], stop=bounds[i][1], num=int(num)
         # ), -1)
-    return tf.Variable(tf.concat(points, axis=1))
+    return tf.constant(tf.concat(points, axis=1))
 
 
 def gen_condition(cond_dict, model_args, **kwargs):
@@ -81,7 +81,8 @@ def gen_condition(cond_dict, model_args, **kwargs):
             with open(cond_dict['filename'], mode="rb") as datafile:
                 data = pkl.load(datafile)
             x = tf.convert_to_tensor(np.array((data['points'])), dtype=tf.float32)
-            c = tf.convert_to_tensor(np.array((data['data'])), dtype=tf.float32)
+            c = tf.convert_to_tensor(np.array((data['data']))* cond_dict['weight'], dtype=tf.float32)
+            c = tf.transpose(c)
         else:
             x, c = default_xc()
     except KeyError:
