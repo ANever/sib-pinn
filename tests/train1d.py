@@ -171,5 +171,5 @@ def train1d(filename, model_class, output_dir=""):
 if __name__ == "__main__":
     config_gpu(flag=0, verbose=True)
     #tf.debugging.set_log_device_placement(True)
-    settings_file = 'test1d.yaml'#simplest-sir-mfg.yaml
+    settings_file = 'simplest-sir-mfg.yaml'
     train1d(filename="./settings/"+settings_file, model_class=PINN, output_dir="/simplest-sir/si_pinn")
