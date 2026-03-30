@@ -4,15 +4,15 @@ ARGS:
   patience: 2000
 
 MODEL:
-  f_hid: 20
-  depth: 5
+  f_hid: 25
+  depth: 8
   in_lb: '[-1.]'
   in_ub: '[1.]'
   act: tanh
   seed: 42
-  lr: 0.0002
+  lr: 0.01
   beta: 0.1
-  dyn_norm: 'dyn_norm' #"max_avg"
+  dyn_norm: "max_avg" #'dyn_norm' #
   
 NS:
   nx: [100]
@@ -25,7 +25,6 @@ OUT_VAR_NAMES:
 
 CUSTOM_CONSTS:
   cost_inf: 4.
-  #beta_max: 20.
   gamma: 2.
   S_0: 0.7
 
@@ -33,10 +32,9 @@ VARIABLES:
   [beta_max]
 
 CUSTOM_FUNCS:
-  exact: t*0
-  beta: 1 /(1.+tf.exp(-alpha(vars_,u_)))
-  beta: 1/(1.+tf.exp(-alpha(vars_,u_)))
-  c: tf.math.abs( beta_max *( uI - uS ) * I / 2.)
+  #exact: t*0
+  beta: beta_max /(1.+tf.exp(-alpha(vars_,u_)))
+  c: tf.math.abs( beta_max *( uI - uS ) * tf.stop_gradient( I ) / 2. ) + 1e-13
   c_sign: tf.math.sign( - ( uI - uS ))
   approximation: -6.63320111e-01 + tf.math.sqrt(c(vars_,u_)) *8.92654544e-01 - c(vars_,u_) * 6.99385982e-02 + c(vars_,u_)**2* 2.97831057e-04 - c(vars_,u_)**3 * 1.08549568e-06 + c(vars_,u_)**4*1.68015701e-09 +tf.math.exp(-c(vars_,u_))*  3.66041065e-02 + tf.math.exp(-2*c(vars_,u_))*  4.74148560e-01
   # this is an approximation of inverse function for f(x)=x(2+e^x+e^(-x))
@@ -44,15 +42,14 @@ CUSTOM_FUNCS:
   
 CONDS:
   pde:
-    eq_string: '- (d/dt) S - beta_max * beta(vars,u_) * S * I ,
-                - (d/dt) I + beta_max * beta(vars,u_) * S * I - gamma * I ,
-                - (d/dt) uS + beta_max * beta(vars,u_) * I * ( uS - uI ) ,
-                - (d/dt) uI + gamma * uI - cost_inf,
-                - (d/dt) beta_max '
-    right_side: 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0] 
+    eq_string: '- (d/dt) S - beta(vars,u_) * S * tf.stop_gradient( I ) ,
+                - tf.stop_gradient( (d/dt) I ) + beta(vars,u_) * S * tf.stop_gradient( I ) - gamma * tf.stop_gradient( I ) ,
+                - (d/dt) uS + beta(vars,u_) * tf.stop_gradient( I ) * ( uS - uI ) - alpha(vars,u_)**2,
+                - (d/dt) uI + gamma * uI - cost_inf'
+    right_side: 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0] 
     point_area: '[[tmin, tmax]]'
-    N: 20000
-   #- alpha(vars,u_)**2
+    N: 10000
+   #
   initial:
      eq_string: S , I
      right_side: 0*vars[:, 0] + S_0 , 0*vars[:, 0] + 1 - S_0

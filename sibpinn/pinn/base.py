@@ -87,11 +87,11 @@ class PINN_BASE(tf.keras.Sequential):
         tf.random.set_seed(self.seed)
         
         # optimizer (overwrite the learning rate if necessary)
-        self.lr = tf.keras.optimizers.schedules.ExponentialDecay(
-            initial_learning_rate=self.lr, decay_steps=3000, decay_rate=0.7
-        )
+        #self.lr = tf.keras.optimizers.schedules.ExponentialDecay(
+        #    initial_learning_rate=self.lr, decay_steps=3000, decay_rate=0.7
+        #)
         
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.lr)
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.lr) #
         self.custom_vars = {}
 
     #def _inner_lambda(self, _dict_func, var_names: list, other_dicts={}):  # _variables
@@ -100,9 +100,7 @@ class PINN_BASE(tf.keras.Sequential):
     #        inner_vars_dict[name] = eval(name)
     #    return eval(_dict_func, other_dicts | inner_vars_dict)
 
-    def init_custom_vars(
-        self, dict_consts: dict, dict_funcs: dict = {}, #var_names: list = [], out_var_names: list = []
-    ):
+    def init_custom_vars(self, dict_consts: dict, dict_funcs: dict = {}):
         def make_lambda(string):
             string = compile(string, "<string>", "eval",optimize=1)
             return tf.function(lambda vars_, u_: eval(
@@ -171,7 +169,7 @@ class PINN_BASE(tf.keras.Sequential):
     def std_error(self, vals, exact_vals):
         return tf.reduce_mean(tf.square(vals - exact_vals))
 
-    #@tf.function
+    @tf.function
     def loss_(self, x, exact_vals, eq_string, compute_grads):
         _, g_ = self.compute_pde(x, eq_string, compute_grads)
         loss = self.std_error(g_, exact_vals)
@@ -235,7 +233,8 @@ class PINN_BASE(tf.keras.Sequential):
         conds_string = self.conds_string
         with tf.GradientTape(persistent=False, watch_accessed_variables=True) as tp:
             losses = tf.cast(eval(conds_string), tf.float32)
-            losses_normed = self.normalize_losses(losses)
+            #losses_normed = self.normalize_losses(losses)
+            losses_normed = losses
             grads = tp.jacobian(losses_normed, self.trainable_weights)
         del tp
         self.update_gammas(grads)
@@ -286,20 +285,24 @@ class PINN_BASE(tf.keras.Sequential):
             write_logger(logger_path, logger_data)
 
             # early stopping
-            if loss_glb < loss_best * 1.5:
+            lr_down_flag = False
+            if loss_glb < loss_best:
                 loss_best = loss_glb
                 wait = 0
+                if lr_down_flag:
+                    self.lr *= 0.9
             else:
                 if wait >= args["patience"]:
                     print(">>>>> early stopping")
                     break
                 wait += 1
-
+                if loss_glb > loss_best * 10:
+                    lr_down_flag = True
             # monitor
             if epoch % 1000 == 0:
                 
                 var_names = self.settings["IN_VAR_NAMES"]
-                func_names = self.settings["OUT_VAR_NAMES"]
+                func_names = self.func_names
         
                 file_extension = "jpg"
                 u_ = self(self.x_ref)

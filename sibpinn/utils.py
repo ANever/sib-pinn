@@ -152,7 +152,7 @@ def gen_condition(cond_dict, model_args, **kwargs):
         compute_grads = True
     else:
         compute_grads = False
-    print(eq_string)
+    #print(eq_string)
     eq_string = compile(eq_string, "<string>", "eval")
     return (x, c, eq_string, compute_grads)
 

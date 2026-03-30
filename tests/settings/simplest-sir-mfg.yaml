@@ -53,21 +53,18 @@ CUSTOM_FUNCS:
 CONDS:
   pde:
     eq_string: '- (d/dt) S - beta_max * beta(vars,u_) * S * I ,
-                - (d/dt) I + beta_max * beta(vars,u_) * S * I - gamma * I ,
+                - (d/dt) I + beta_max * beta(vars,u_) * S * I - gamma * I - alpha(vars,u_)**2,
                 - (d/dt) uS + beta_max * beta(vars,u_) * I * ( uS - uI ) ,
                 - (d/dt) uI + gamma * uI - cost_inf'
-                # beta_max '
     right_side: 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0] # 0*vars[:, 0]+20. 
     point_area: '[[tmin, tmax]]'
-    N: 20000
-   #- alpha(vars,u_)**2
+    N: 2000
+   #
   initial:
      eq_string: S , I
      right_side: 0*vars[:, 0] + S_0 , 0*vars[:, 0] + 1 - S_0
      point_area: '[[tmin, tmin]]'
      N: 1
-     
-  
   terminal:
      eq_string: uS , uI
      right_side: 0*vars[:, 0] , 0*vars[:, 0]
