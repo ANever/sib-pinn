@@ -1,11 +1,22 @@
 import os
+import time
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 import tensorflow.keras as keras
 
-from ..utils import eval_dict, replace_words
-#from lbfgs import lbfgs_minimize, set_LBFGS_options
+from tqdm import tqdm
+
+from ..utils import (
+    make_logger,
+    replace_words,
+    write_logger,
+    eval_dict,
+    plot_loss_curve,
+    plot_comparison1d,
+    to_gif,
+    from_file
+)
 
 class PINN_BASE(tf.keras.Sequential):
     def __init__(
@@ -130,7 +141,6 @@ class PINN_BASE(tf.keras.Sequential):
     def loss_(self, x, exact_vals, eq_string, compute_grads):
         _, g_ = self.compute_pde(x, eq_string, compute_grads)
         loss = self.std_error(g_, exact_vals)
-        print(g_.shape, exact_vals.shape)
         return loss
 
     # def infer(self, x):
@@ -186,7 +196,9 @@ class PINN_BASE(tf.keras.Sequential):
             self.gammas.assign(self.beta * gammas_cup + (1 - self.beta) * self.gammas)
 
     @tf.function
-    def train(self, conditions, conds_string):
+    def train(self):
+        conditions = self.conditions
+        conds_string = self.conds_string
         with tf.GradientTape(persistent=False, watch_accessed_variables=True) as tp:
             losses = tf.cast(eval(conds_string), tf.float32)
             losses_normed = self.normalize_losses(losses)
@@ -209,7 +221,74 @@ class PINN_BASE(tf.keras.Sequential):
         loss = lambda: self.eval_loss(conditions, conds_string)
         res = lbfgs_minimize(self.trainable_weights, loss)
         return res
+    
+    def run_training(self, output_dir=''): #1d case
+        logger_path = make_logger("seed: in model", output_dir=output_dir)
+        losses_logs = np.empty((len(self.conds.keys()), 1))
 
+        # training
+        wait = 0
+        loss_best = tf.constant(1e20)
+        loss_save = tf.constant(1e20)
+        t0 = time.perf_counter()
+
+        args = eval_dict(self.settings["ARGS"])
+        N = int(args["epochs"])
+        pbar = tqdm(range(N), total=N, desc="N")
+        #tboard_callback = tf.keras.callbacks.TensorBoard(log_dir = 'logdir',
+        #                                             histogram_freq = 1,)
+                                                     
+        for epoch in pbar:
+            #tf.profiler.experimental.start('logdir')
+            loss_glb, losses = self.train()#(model.conditions, model.conds_string)
+            losses_logs = np.append(losses_logs, np.expand_dims(losses, axis=0).T, axis=1)
+            elps = time.perf_counter() - t0
+            pbar.set_postfix_str(f"Loss={loss_glb:.6f}", refresh=False)
+            losses = dict(zip(self.conds.keys(), losses))
+            logger_data = [key + f": {losses[key]:.3e}, " for key in losses.keys()]
+            logger_data = f"epoch: {epoch:d}, loss_total: {loss_glb:.3e}, " + ", ".join(
+                logger_data
+            )
+            write_logger(logger_path, logger_data)
+
+            # early stopping
+            if loss_glb < loss_best * 1.5:
+                loss_best = loss_glb
+                wait = 0
+            else:
+                if wait >= args["patience"]:
+                    print(">>>>> early stopping")
+                    break
+                wait += 1
+
+            # monitor
+            if epoch % 1000 == 0:
+                
+                var_names = self.settings["IN_VAR_NAMES"]
+                func_names = self.settings["OUT_VAR_NAMES"]
+        
+                file_extension = "jpg"
+                u_ = self(self.x_ref)
+                u_n = u_.numpy().transpose()
+                plot_commons = {
+                    "epoch": epoch,
+                    "x": self.x_ref[:, 0],
+                    "y": None, #x_ref[:, 1],
+                    "xlabel": var_names[0],
+                    "ylabel": None, #var_names[1],
+                }
+                for func, title in zip(u_n, func_names):
+                    plot_comparison1d(u_inf=func, 
+                                      title=title, 
+                                      file_extension=file_extension, 
+                                      output_dir=output_dir,
+                                      **plot_commons)
+                
+                plot_loss_curve(epoch, 
+                                losses_logs[:, 1:], 
+                                labels=list(self.conds.keys()), 
+                                file_extension=file_extension,
+                                output_dir=output_dir,)
 
 
 
