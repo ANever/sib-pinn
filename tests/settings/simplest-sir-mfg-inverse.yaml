@@ -21,7 +21,7 @@ IN_VAR_NAMES:
  [t]
 
 OUT_VAR_NAMES:
- [S, I, uS, uI, beta_max]
+ [S, I, uS, uI]
 
 CUSTOM_CONSTS:
   cost_inf: 4.
@@ -30,11 +30,11 @@ CUSTOM_CONSTS:
   S_0: 0.7
 
 VARIABLES:
-  beta_max: 0.
+  [beta_max]
 
 CUSTOM_FUNCS:
   exact: t*0
-  beta: beta_max/(1.+tf.exp(-alpha(vars_,u_)))
+  beta: 1 /(1.+tf.exp(-alpha(vars_,u_)))
   beta: 1/(1.+tf.exp(-alpha(vars_,u_)))
   c: tf.math.abs( beta_max *( uI - uS ) * I / 2.)
   c_sign: tf.math.sign( - ( uI - uS ))

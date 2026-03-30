@@ -32,15 +32,13 @@ def from_file(filename, model_class):
 
     var_names = settings["IN_VAR_NAMES"]
     func_names = settings["OUT_VAR_NAMES"]
-    
-    model = model_class(var_names=var_names, func_names=func_names, **(model_args))
+    const_outs_names = settings["VARIABLES"]
+    model = model_class(var_names=var_names, func_names=func_names,const_outs_names = const_outs_names, **(model_args))
     model.init_custom_vars(
         dict_consts=settings["CUSTOM_CONSTS"],
         dict_funcs=settings["CUSTOM_FUNCS"],
-        var_names=var_names,
-        out_var_names=func_names,
     )
-    
+
     #TODO rewrite it to be for all variations of dimentions
     in_lb = model_args["in_lb"]
     tmin = in_lb[0]
@@ -51,7 +49,7 @@ def from_file(filename, model_class):
     conditions = []
     for key in list(conds.keys()):
         cond_ = gen_condition(
-            conds[key], model_args, func_names=func_names, var_names=var_names, **model.custom_vars
+            conds[key], model_args, func_names=model.func_names, var_names=model.var_names, **model.custom_vars
         )
         conditions.append(cond_)
     cond_string = [
@@ -154,7 +152,7 @@ def gen_condition(cond_dict, model_args, **kwargs):
         compute_grads = True
     else:
         compute_grads = False
-    # print(eq_string)
+    print(eq_string)
     eq_string = compile(eq_string, "<string>", "eval")
     return (x, c, eq_string, compute_grads)
 

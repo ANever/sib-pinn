@@ -18,6 +18,27 @@ from ..utils import (
     from_file
 )
 
+class AddConstantOuts(tf.keras.layers.Layer):
+    def __init__(self, n_outs, **kwargs):
+        super().__init__(**kwargs)
+        self.n_const_outs = n_outs
+        
+    def build(self, input_shape):
+        self.const_outs = self.add_weight(name="bias",
+                                    shape=(self.n_const_outs,),
+                                    initializer='zeros',
+                                    trainable=True)
+                                    
+    def call(self, inputs):
+        const_outs = keras.ops.outer(tf.ones(inputs.shape[0]), self.const_outs)
+        return tf.keras.ops.concatenate((inputs, const_outs), axis=-1)
+
+    def compute_output_shape(self, input_shape):
+        output_shape = list(input_shape)
+        output_shape[-1] += self.n_const_outs
+        return output_shape
+
+
 class PINN_BASE(tf.keras.Sequential):
     def __init__(
         self,
@@ -25,6 +46,7 @@ class PINN_BASE(tf.keras.Sequential):
         in_ub,
         var_names,
         func_names,
+        const_outs_names=[],
         act = 'tanh',
         lr=1e-3,
         dyn_norm=None,
@@ -33,6 +55,8 @@ class PINN_BASE(tf.keras.Sequential):
     ):
         super().__init__()
         self.var_names = var_names
+        self.func_names = func_names
+        self.const_outs_names = const_outs_names
         self.f_in = int(len(var_names))  # f_in)
         self.f_out = int(len(func_names))  # f_out)
         self.lb = in_lb  # lower bound of input
@@ -44,9 +68,12 @@ class PINN_BASE(tf.keras.Sequential):
         self.f_scl = "minmax"  # "linear" / "minmax" / "mean"
         self.d_type = tf.float32
         #self.model_name = "pinn"
-
         self.act_func = self.init_act_func(self.act)
-
+        
+        self.func_names += self.const_outs_names
+        
+        print(self.func_names)
+        
         # Note that it assumes that first element of var_names belongs to pde
         self.dynamic_normalisation = dyn_norm
         if 0 <= beta and beta <= 1: 
@@ -67,14 +94,14 @@ class PINN_BASE(tf.keras.Sequential):
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.lr)
         self.custom_vars = {}
 
-    def _inner_lambda(self, _dict_func, var_names: list, other_dicts={}):  # _variables
-        inner_vars_dict = {}
-        for name in var_names:
-            inner_vars_dict[name] = eval(name)
-        return eval(_dict_func, other_dicts | inner_vars_dict)
+    #def _inner_lambda(self, _dict_func, var_names: list, other_dicts={}):  # _variables
+    #    inner_vars_dict = {}
+    #    for name in var_names:
+    #        inner_vars_dict[name] = eval(name)
+    #    return eval(_dict_func, other_dicts | inner_vars_dict)
 
     def init_custom_vars(
-        self, dict_consts: dict, dict_funcs: dict = {}, var_names: list = [], out_var_names: list = []
+        self, dict_consts: dict, dict_funcs: dict = {}, #var_names: list = [], out_var_names: list = []
     ):
         def make_lambda(string):
             string = compile(string, "<string>", "eval",optimize=1)
@@ -87,15 +114,22 @@ class PINN_BASE(tf.keras.Sequential):
             self.custom_vars[key] = tf.constant(self.custom_vars[key])
 
         replecement_dict = {}
-        for i in range(len(var_names)):
-            replecement_dict[var_names[i]] = "vars_[:," + str(i) + "]"
-        for i in range(len(out_var_names)):
-            replecement_dict[out_var_names[i]] = "u_[:," + str(i) + "]"
+        for i, name in enumerate(self.var_names):
+            replecement_dict[name] = "vars_[:," + str(i) + "]"
+        for i, name in enumerate(self.func_names):
+            replecement_dict[name] = "u_[:," + str(i) + "]"
         for key in dict_funcs.keys():
             self.custom_vars.update({
                 key: make_lambda(replace_words(dict_funcs[key], replecement_dict))
             })
 
+    
+    def postinit(self):
+        n = len(self.const_outs_names)
+        print(n)
+        if n > 0:
+            self.add(AddConstantOuts(n))
+            
     def init_act_func(self, act):
         if act == "tanh":
             return lambda u: tf.math.tanh(u)
@@ -315,4 +349,3 @@ class PINN(PINN_BASE):
         for _ in range(self.depth):
             self.add(keras.layers.Dense(self.f_hid, activation=self.act_func))
         self.add(keras.layers.Dense(self.f_out))
-        #self.trainable_weights = tf.Variable(self.trainable_weights)
