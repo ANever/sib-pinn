@@ -103,7 +103,7 @@ class PINN_BASE(tf.keras.Sequential):
     def compute_pde(self, vars, eq_string, compute_grads=False):
         if compute_grads:
             with tf.GradientTape(
-                persistent=False, watch_accessed_variables=True
+                persistent=True, watch_accessed_variables=True
             ) as tp1:
                 #tp1.watch(vars)
                 with tf.GradientTape(
@@ -126,10 +126,11 @@ class PINN_BASE(tf.keras.Sequential):
     def std_error(self, vals, exact_vals):
         return tf.reduce_mean(tf.square(vals - exact_vals))
 
-    @tf.function
+    #@tf.function
     def loss_(self, x, exact_vals, eq_string, compute_grads):
         _, g_ = self.compute_pde(x, eq_string, compute_grads)
         loss = self.std_error(g_, exact_vals)
+        print(g_.shape, exact_vals.shape)
         return loss
 
     # def infer(self, x):
@@ -187,10 +188,8 @@ class PINN_BASE(tf.keras.Sequential):
     @tf.function
     def train(self, conditions, conds_string):
         with tf.GradientTape(persistent=False, watch_accessed_variables=True) as tp:
-
             losses = tf.cast(eval(conds_string), tf.float32)
             losses_normed = self.normalize_losses(losses)
-            
             grads = tp.jacobian(losses_normed, self.trainable_weights)
         del tp
         self.update_gammas(grads)
@@ -237,3 +236,4 @@ class PINN(PINN_BASE):
         for _ in range(self.depth):
             self.add(keras.layers.Dense(self.f_hid, activation=self.act_func))
         self.add(keras.layers.Dense(self.f_out))
+        #self.trainable_weights = tf.Variable(self.trainable_weights)

@@ -64,7 +64,7 @@ def gen_points(num, bounds, n_vars=None):
         # points[i] = tf.expand_dims(tf.linspace(
         #     start=bounds[i][0], stop=bounds[i][1], num=int(num)
         # ), -1)
-    return tf.constant(tf.concat(points, axis=1))
+    return tf.Variable(tf.concat(points, axis=1)) #variable to be differentiable
 
 
 def gen_condition(cond_dict, model_args, **kwargs):
