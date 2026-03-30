@@ -44,5 +44,6 @@ class PINN_WAVE(PINN_BASE):
         self.add(WaveBasis())
         for _ in range(self.depth):
             self.add(keras.layers.Dense(self.f_hid, activation=self.act_func))
-        self.add(keras.layers.Dense(self.f_out, activation=lambda x: x))
+        self.add(keras.layers.Dense(self.f_out))
         
+        self.postinit()

@@ -1,11 +1,43 @@
 import os
+import time
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 import tensorflow.keras as keras
 
-from ..utils import eval_dict, replace_words
-#from lbfgs import lbfgs_minimize, set_LBFGS_options
+from tqdm import tqdm
+
+from ..utils import (
+    make_logger,
+    replace_words,
+    write_logger,
+    eval_dict,
+    plot_loss_curve,
+    plot_comparison1d,
+    to_gif,
+    from_file
+)
+
+class AddConstantOuts(tf.keras.layers.Layer):
+    def __init__(self, n_outs, **kwargs):
+        super().__init__(**kwargs)
+        self.n_const_outs = n_outs
+        
+    def build(self, input_shape):
+        self.const_outs = self.add_weight(name="bias",
+                                    shape=(self.n_const_outs,),
+                                    initializer='zeros',
+                                    trainable=True)
+                                    
+    def call(self, inputs):
+        const_outs = keras.ops.outer(tf.ones(inputs.shape[0]), self.const_outs)
+        return tf.keras.ops.concatenate((inputs, const_outs), axis=-1)
+
+    def compute_output_shape(self, input_shape):
+        output_shape = list(input_shape)
+        output_shape[-1] += self.n_const_outs
+        return output_shape
+
 
 class PINN_BASE(tf.keras.Sequential):
     def __init__(
@@ -14,6 +46,7 @@ class PINN_BASE(tf.keras.Sequential):
         in_ub,
         var_names,
         func_names,
+        const_outs_names=[],
         act = 'tanh',
         lr=1e-3,
         dyn_norm=None,
@@ -22,6 +55,8 @@ class PINN_BASE(tf.keras.Sequential):
     ):
         super().__init__()
         self.var_names = var_names
+        self.func_names = func_names
+        self.const_outs_names = const_outs_names
         self.f_in = int(len(var_names))  # f_in)
         self.f_out = int(len(func_names))  # f_out)
         self.lb = in_lb  # lower bound of input
@@ -33,9 +68,12 @@ class PINN_BASE(tf.keras.Sequential):
         self.f_scl = "minmax"  # "linear" / "minmax" / "mean"
         self.d_type = tf.float32
         #self.model_name = "pinn"
-
         self.act_func = self.init_act_func(self.act)
-
+        
+        self.func_names += self.const_outs_names
+        
+        print(self.func_names)
+        
         # Note that it assumes that first element of var_names belongs to pde
         self.dynamic_normalisation = dyn_norm
         if 0 <= beta and beta <= 1: 
@@ -49,22 +87,20 @@ class PINN_BASE(tf.keras.Sequential):
         tf.random.set_seed(self.seed)
         
         # optimizer (overwrite the learning rate if necessary)
-        self.lr = tf.keras.optimizers.schedules.ExponentialDecay(
-            initial_learning_rate=self.lr, decay_steps=3000, decay_rate=0.7
-        )
+        #self.lr = tf.keras.optimizers.schedules.ExponentialDecay(
+        #    initial_learning_rate=self.lr, decay_steps=3000, decay_rate=0.7
+        #)
         
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.lr)
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.lr) #
         self.custom_vars = {}
 
-    def _inner_lambda(self, _dict_func, var_names: list, other_dicts={}):  # _variables
-        inner_vars_dict = {}
-        for name in var_names:
-            inner_vars_dict[name] = eval(name)
-        return eval(_dict_func, other_dicts | inner_vars_dict)
+    #def _inner_lambda(self, _dict_func, var_names: list, other_dicts={}):  # _variables
+    #    inner_vars_dict = {}
+    #    for name in var_names:
+    #        inner_vars_dict[name] = eval(name)
+    #    return eval(_dict_func, other_dicts | inner_vars_dict)
 
-    def init_custom_vars(
-        self, dict_consts: dict, dict_funcs: dict = {}, var_names: list = [], out_var_names: list = []
-    ):
+    def init_custom_vars(self, dict_consts: dict, dict_funcs: dict = {}):
         def make_lambda(string):
             string = compile(string, "<string>", "eval",optimize=1)
             return tf.function(lambda vars_, u_: eval(
@@ -76,15 +112,22 @@ class PINN_BASE(tf.keras.Sequential):
             self.custom_vars[key] = tf.constant(self.custom_vars[key])
 
         replecement_dict = {}
-        for i in range(len(var_names)):
-            replecement_dict[var_names[i]] = "vars_[:," + str(i) + "]"
-        for i in range(len(out_var_names)):
-            replecement_dict[out_var_names[i]] = "u_[:," + str(i) + "]"
+        for i, name in enumerate(self.var_names):
+            replecement_dict[name] = "vars_[:," + str(i) + "]"
+        for i, name in enumerate(self.func_names):
+            replecement_dict[name] = "u_[:," + str(i) + "]"
         for key in dict_funcs.keys():
             self.custom_vars.update({
                 key: make_lambda(replace_words(dict_funcs[key], replecement_dict))
             })
 
+    
+    def postinit(self):
+        n = len(self.const_outs_names)
+        print(n)
+        if n > 0:
+            self.add(AddConstantOuts(n))
+            
     def init_act_func(self, act):
         if act == "tanh":
             return lambda u: tf.math.tanh(u)
@@ -126,11 +169,10 @@ class PINN_BASE(tf.keras.Sequential):
     def std_error(self, vals, exact_vals):
         return tf.reduce_mean(tf.square(vals - exact_vals))
 
-    #@tf.function
+    @tf.function
     def loss_(self, x, exact_vals, eq_string, compute_grads):
         _, g_ = self.compute_pde(x, eq_string, compute_grads)
         loss = self.std_error(g_, exact_vals)
-        print(g_.shape, exact_vals.shape)
         return loss
 
     # def infer(self, x):
@@ -186,10 +228,13 @@ class PINN_BASE(tf.keras.Sequential):
             self.gammas.assign(self.beta * gammas_cup + (1 - self.beta) * self.gammas)
 
     @tf.function
-    def train(self, conditions, conds_string):
+    def train(self):
+        conditions = self.conditions
+        conds_string = self.conds_string
         with tf.GradientTape(persistent=False, watch_accessed_variables=True) as tp:
             losses = tf.cast(eval(conds_string), tf.float32)
-            losses_normed = self.normalize_losses(losses)
+            #losses_normed = self.normalize_losses(losses)
+            losses_normed = losses
             grads = tp.jacobian(losses_normed, self.trainable_weights)
         del tp
         self.update_gammas(grads)
@@ -209,7 +254,78 @@ class PINN_BASE(tf.keras.Sequential):
         loss = lambda: self.eval_loss(conditions, conds_string)
         res = lbfgs_minimize(self.trainable_weights, loss)
         return res
+    
+    def run_training(self, output_dir=''): #1d case
+        logger_path = make_logger("seed: in model", output_dir=output_dir)
+        losses_logs = np.empty((len(self.conds.keys()), 1))
 
+        # training
+        wait = 0
+        loss_best = tf.constant(1e20)
+        loss_save = tf.constant(1e20)
+        t0 = time.perf_counter()
+
+        args = eval_dict(self.settings["ARGS"])
+        N = int(args["epochs"])
+        pbar = tqdm(range(N), total=N, desc="N")
+        #tboard_callback = tf.keras.callbacks.TensorBoard(log_dir = 'logdir',
+        #                                             histogram_freq = 1,)
+                                                     
+        for epoch in pbar:
+            #tf.profiler.experimental.start('logdir')
+            loss_glb, losses = self.train()#(model.conditions, model.conds_string)
+            losses_logs = np.append(losses_logs, np.expand_dims(losses, axis=0).T, axis=1)
+            elps = time.perf_counter() - t0
+            pbar.set_postfix_str(f"Loss={loss_glb:.6f}", refresh=False)
+            losses = dict(zip(self.conds.keys(), losses))
+            logger_data = [key + f": {losses[key]:.3e}, " for key in losses.keys()]
+            logger_data = f"epoch: {epoch:d}, loss_total: {loss_glb:.3e}, " + ", ".join(
+                logger_data
+            )
+            write_logger(logger_path, logger_data)
+
+            # early stopping
+            lr_down_flag = False
+            if loss_glb < loss_best:
+                loss_best = loss_glb
+                wait = 0
+                if lr_down_flag:
+                    self.lr *= 0.9
+            else:
+                if wait >= args["patience"]:
+                    print(">>>>> early stopping")
+                    break
+                wait += 1
+                if loss_glb > loss_best * 10:
+                    lr_down_flag = True
+            # monitor
+            if epoch % 1000 == 0:
+                
+                var_names = self.settings["IN_VAR_NAMES"]
+                func_names = self.func_names
+        
+                file_extension = "jpg"
+                u_ = self(self.x_ref)
+                u_n = u_.numpy().transpose()
+                plot_commons = {
+                    "epoch": epoch,
+                    "x": self.x_ref[:, 0],
+                    "y": None, #x_ref[:, 1],
+                    "xlabel": var_names[0],
+                    "ylabel": None, #var_names[1],
+                }
+                for func, title in zip(u_n, func_names):
+                    plot_comparison1d(u_inf=func, 
+                                      title=title, 
+                                      file_extension=file_extension, 
+                                      output_dir=output_dir,
+                                      **plot_commons)
+                
+                plot_loss_curve(epoch, 
+                                losses_logs[:, 1:], 
+                                labels=list(self.conds.keys()), 
+                                file_extension=file_extension,
+                                output_dir=output_dir,)
 
 
 
@@ -236,4 +352,3 @@ class PINN(PINN_BASE):
         for _ in range(self.depth):
             self.add(keras.layers.Dense(self.f_hid, activation=self.act_func))
         self.add(keras.layers.Dense(self.f_out))
-        #self.trainable_weights = tf.Variable(self.trainable_weights)

@@ -20,6 +20,64 @@ from typing import List, Union, Dict, Any
 import traceback
 import copy
 
+def from_file(filename, model_class):
+    with open(filename, mode="r") as file:
+        settings = yaml.safe_load(file)
+    
+    model_args = eval_dict(settings["MODEL"], {"tf": tf, "": np})
+
+    for key in model_args.keys():
+        if isinstance(model_args[key], list):
+            model_args[key] = tf.constant(model_args[key], tf.float32)
+
+    var_names = settings["IN_VAR_NAMES"]
+    func_names = settings["OUT_VAR_NAMES"]
+    const_outs_names = settings["VARIABLES"]
+    model = model_class(var_names=var_names, func_names=func_names,const_outs_names = const_outs_names, **(model_args))
+    model.init_custom_vars(
+        dict_consts=settings["CUSTOM_CONSTS"],
+        dict_funcs=settings["CUSTOM_FUNCS"],
+    )
+
+    #TODO rewrite it to be for all variations of dimentions
+    in_lb = model_args["in_lb"]
+    tmin = in_lb[0]
+    in_ub = model_args["in_ub"]
+    tmax = in_ub[0]
+    
+    conds = eval_dict(settings["CONDS"], locals() | {"tf": tf} | model.custom_vars, 1)
+    conditions = []
+    for key in list(conds.keys()):
+        cond_ = gen_condition(
+            conds[key], model_args, func_names=model.func_names, var_names=model.var_names, **model.custom_vars
+        )
+        conditions.append(cond_)
+    cond_string = [
+        "self.loss_(*conditions[" + str(i) + "])," for i in range(len(conditions))
+    ]
+    cond_string = compile("(" + "".join(cond_string) + ")", '<string>', 'eval')
+    
+    model.init_dynamical_normalisation(len(conditions))
+    
+    ns = eval_dict(settings["NS"])
+    var_names = settings["IN_VAR_NAMES"]
+    _x = [0] * len(var_names)
+    for i in range(len(var_names)):
+        _x[i] = tf.linspace(in_lb[i], in_ub[i], ns["nx"][i])
+    _x = (tf.meshgrid(*_x))
+
+    x = [0]*len(_x)
+    for i in range(len(var_names)):
+        x[i] = tf.reshape(_x[i],(-1,1))
+    x_ref = tf.transpose(tf.cast(x, dtype=tf.float32))[0]
+    
+    model.x_ref = x_ref
+    model.conds = conds
+    model.conditions = conditions
+    model.conds_string = cond_string
+    model.settings = settings
+    
+    return model
 
 def find_all_words(string):
     _len = len(string)
@@ -94,7 +152,7 @@ def gen_condition(cond_dict, model_args, **kwargs):
         compute_grads = True
     else:
         compute_grads = False
-    # print(eq_string)
+    #print(eq_string)
     eq_string = compile(eq_string, "<string>", "eval")
     return (x, c, eq_string, compute_grads)
 
