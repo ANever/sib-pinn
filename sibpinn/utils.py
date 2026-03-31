@@ -39,13 +39,6 @@ def from_file(filename, model_class):
         dict_consts=settings["CUSTOM_CONSTS"],
         dict_funcs=settings["CUSTOM_FUNCS"],
     )
-
-    #TODO rewrite it to be for all variations of dimentions
-    in_lb = model_args["in_lb"]
-    tmin = in_lb[0]
-    in_ub = model_args["in_ub"]
-    tmax = in_ub[0]
-    
     conds = eval_dict(settings["CONDS"], locals() | {"tf": tf} | model.custom_vars, 1)
     conditions = []
     for key in list(conds.keys()):
@@ -64,7 +57,7 @@ def from_file(filename, model_class):
     var_names = settings["IN_VAR_NAMES"]
     _x = [0] * len(var_names)
     for i in range(len(var_names)):
-        _x[i] = tf.linspace(in_lb[i], in_ub[i], ns["nx"][i])
+        _x[i] = tf.linspace(model_args['in_lb'][i], model_args['in_ub'][i], ns["nx"][i])
     _x = (tf.meshgrid(*_x))
 
     x = [0]*len(_x)

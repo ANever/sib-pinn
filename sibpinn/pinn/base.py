@@ -255,7 +255,7 @@ class PINN_BASE(tf.keras.Sequential):
         res = lbfgs_minimize(self.trainable_weights, loss)
         return res
     
-    def run_training(self, output_dir=''): #1d case
+    def run_training(self, output_dir=''):
         logger_path = make_logger("seed: in model", output_dir=output_dir)
         losses_logs = np.empty((len(self.conds.keys()), 1))
 
@@ -305,21 +305,21 @@ class PINN_BASE(tf.keras.Sequential):
                 func_names = self.func_names
         
                 file_extension = "jpg"
-                u_ = self(self.x_ref)
-                u_n = u_.numpy().transpose()
-                plot_commons = {
-                    "epoch": epoch,
-                    "x": self.x_ref[:, 0],
-                    "y": None, #x_ref[:, 1],
-                    "xlabel": var_names[0],
-                    "ylabel": None, #var_names[1],
-                }
-                for func, title in zip(u_n, func_names):
-                    plot_comparison1d(u_inf=func, 
-                                      title=title, 
-                                      file_extension=file_extension, 
-                                      output_dir=output_dir,
-                                      **plot_commons)
+                #u_ = self(self.x_ref)
+                #u_n = u_.numpy().transpose()
+                #plot_commons = {
+                #    "epoch": epoch,
+                #    "x": self.x_ref[:, 0],
+                #    "y": None, #x_ref[:, 1],
+                #    "xlabel": var_names[0],
+                #    "ylabel": None, #var_names[1],
+                #}
+                #for func, title in zip(u_n, func_names):
+                #    plot_comparison1d(u_inf=func, 
+                #                      title=title, 
+                #                      file_extension=file_extension, 
+                #                      output_dir=output_dir,
+                #                      **plot_commons)
                 
                 plot_loss_curve(epoch, 
                                 losses_logs[:, 1:], 
