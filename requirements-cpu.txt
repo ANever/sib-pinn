@@ -1,0 +1,8 @@
+matplotlib
+pyyaml
+tensorflow
+tensorflow-probability
+tf-keras
+pdf2image
+tqdm
+
