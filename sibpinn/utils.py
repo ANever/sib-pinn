@@ -25,7 +25,8 @@ def from_file(filename, model_class):
         settings = yaml.safe_load(file)
     
     model_args = eval_dict(settings["MODEL"], {"tf": tf, "": np})
-
+    settings["MODEL"] = model_args
+    
     for key in model_args.keys():
         if isinstance(model_args[key], list):
             model_args[key] = tf.constant(model_args[key], tf.float32)
@@ -126,8 +127,14 @@ def gen_points(num, bounds, n_vars=None):
 
 
 def gen_condition(cond_dict, model_args, **kwargs):
+    ub = model_args['in_ub']
+    lb = model_args['in_lb']
     def default_xc():
-        x = gen_points(cond_dict["N"], cond_dict["point_area"])
+        bounds = np.array(cond_dict["point_area"])
+        if cond_dict['relative_area']:
+            bounds = bounds * (ub - lb) + lb
+            print(bounds)
+        x = gen_points(cond_dict["N"], bounds)
         right_side_line = line_parser(cond_dict["right_side"], **kwargs)
         right_side_func = eval(
         "lambda vars: (" + right_side_line + ",)", kwargs | {"tf": tf}
