@@ -20,6 +20,9 @@ NS:
 IN_VAR_NAMES:
  [t]
 
+VARIABLES:
+ []
+ 
 OUT_VAR_NAMES:
  [S, I, uS, uI] #beta_max]
 

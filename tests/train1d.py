@@ -23,6 +23,6 @@ def train1d(filename, model_class, **kwargs):
 if __name__ == "__main__":
     config_gpu(flag=0, verbose=True)
 
-    settings_file = 'simplest-sir-mfg-inverse.yaml'
+    settings_file = 'simplest-sir-mfg.yaml'
     train1d(filename="./settings/"+settings_file, model_class=PINN_WAVE, output_dir="/simplest-sir")
 

@@ -1,8 +1,9 @@
 matplotlib
 pyyaml
 cuda-toolkit
-cudnn
-tensorflow
+tensorflow[and-cuda]
+tensorflow-probability
+tf-keras
 pdf2image
 tqdm
-pickle
+
