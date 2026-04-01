@@ -21,7 +21,7 @@ IN_VAR_NAMES:
  [t]
 
 OUT_VAR_NAMES:
- [u] #beta_max]
+ [u]
 
 CUSTOM_CONSTS:
   cost_inf: 4.
@@ -34,23 +34,22 @@ CUSTOM_FUNCS:
 
   
 CONDS:
-  
-   #- alpha(vars,u_)**2
   initial:
      eq_string: u
-     right_side: 0*vars[:, 0] 
-     point_area: '[[tmin, tmin]]'
+     right_side: 0*vars[:, 0]
+     relative_area: True
+     point_area: '[[0, 0]]'
      N: 1
      
   pde:
     eq_string: '(d/dt)^2 u + (  vars[:, 0] *0. + 1.)'
     right_side: 0*vars[:, 0] # 0*vars[:, 0]+20. 
-    point_area: '[[tmin, tmax]]'
+    point_area: '[[0, 1]]'
     N: 20000
     
   terminal:
      eq_string: u
      right_side: 0*vars[:, 0]
-     point_area: '[[tmax, tmax]]'
+     point_area: '[[1, 1]]'
      N: 1
 

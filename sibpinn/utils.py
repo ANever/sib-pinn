@@ -120,19 +120,25 @@ def gen_points(num, bounds, n_vars=None):
 
 
 def gen_condition(cond_dict, model_args, **kwargs):
-    ub = model_args['in_ub']
-    lb = model_args['in_lb']
     def default_xc():
         bounds = np.array(cond_dict["point_area"])
         if cond_dict['relative_area']:
             bounds = bounds * (ub - lb) + lb
         x = gen_points(cond_dict["N"], bounds)
+        
+        if not("right_side" in cond_dict.keys()):
+            cond_dict["right_side"] = ('vars[:,0] * 0,' * (cond_dict["eq_string"].count('),') + 1))[:-1]
         right_side_line = line_parser(cond_dict["right_side"], **kwargs)
         right_side_func = eval(
         "lambda vars: (" + right_side_line + ",)", kwargs | {"tf": tf}
         )
         c = tf.convert_to_tensor(right_side_func(x), dtype=tf.float32)
+        print(c.shape)
         return x, c
+        
+    ub = model_args['in_ub']
+    lb = model_args['in_lb']
+        
     try:
         if cond_dict['raw_data_condition']:
             with open(cond_dict['filename'], mode="rb") as datafile:
@@ -177,9 +183,29 @@ default_var_names = ("x", "y")
 
 def line_parser(eq_string, func_names, var_names=default_var_names, **kwargs):
     var_dict = dict(zip(var_names, range(len(var_names))))
+    
+    if '=' in eq_string:
+        counter = 0
+        new_eq_string = ''
+        for char in eq_string:
+            if char=='(':
+                counter +=1
+            elif char==')':
+                counter -=1
+            elif char==',' and counter==1:
+                char='),'
+            else:
+                pass
+            new_eq_string += char
+        eq_string = new_eq_string
+        eq_string = eq_string.replace('=', ' - (')
+        #eq_string = eq_string.replace(',', ' ), ')
+        #eq_string += ')'
+        
     splited = eq_string.split(" ")
     ops_stack = []
 
+    
     def is_der_operator(string: str):
         if re.findall(r"\(d\/d..?\)", string):
             return True
@@ -263,10 +289,10 @@ def plot_compari(epoch, x, y, u_inf)
 def plot_comparison1d(
     epoch,
     x,
-    y,
+    #y,
     u_inf,
     xlabel,
-    ylabel,
+    #ylabel,
     title="",
     file_extension="pdf",
     output_dir=""
@@ -280,21 +306,14 @@ def plot_comparison1d(
     plt.xticks(np.arange(np.min(x), np.max(x) + 1e-6, xticks))
     plt.xlim(np.min(x), np.max(x))
     plt.xlabel(xlabel)
-    #plt.title("inference")
-
+    
     os.makedirs("./results" + output_dir, exist_ok=True)
-
     plt.savefig("./results" + output_dir + "/comparison_" + title + "_" + str(epoch) + "." + file_extension, dpi=300)
     plt.clf()
     plt.close()
     with open('./results' + output_dir + '/data_'+ title + "_" + str(epoch) + ".txt"	, 'wb') as f:
-        pkl.dump((x,y,u_inf), f)	
-        #pkl.dump(data, f)
-        #	pkl.dump(data, f)
-        #print(str(x), file=f)
-        #print(str(y), file=f)
-        #print(str(u_inf), file=f)
-       
+        pkl.dump((x,u_inf), f)	
+        
 def load_data(title, epoch):
     with open('./results/data_'+ title + "_" + str(epoch) + ".txt"	, 'b') as f:
         x,y,u_inf = pkl.load(f)

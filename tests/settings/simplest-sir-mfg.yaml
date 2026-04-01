@@ -47,32 +47,23 @@ CUSTOM_FUNCS:
   # this is an approximation of inverse function for f(x)=x(2+e^x+e^(-x))
   alpha: c_sign(vars_,u_) * approximation(vars_,u_)
   
-  
-  
-  #tfp.substrates.jax.math.find_root_secant(lambda x:2.*x*(1.+tf.math.cosh(x)) - c(vars_,u_), t*0., max_iterations=100)[0]
-  #tfp.math.find_root_chandrupatla(lambda x:x*(2.+tf.exp(x)+tf.exp(-x)) - c(vars_,u_), -100.+t*0., 100.+t*0.)[0]
-  #tfp.math.find_root_secant(lambda x:2.*x*(1.+tf.math.cosh(x)) - c(vars_,u_), t*0., max_iterations=100)[0]
-  
 CONDS:
   pde:
-    eq_string: '- (d/dt) S - beta_max * beta(vars,u_) * S * I ,
-                - (d/dt) I + beta_max * beta(vars,u_) * S * I - gamma * I - alpha(vars,u_)**2,
-                - (d/dt) uS + beta_max * beta(vars,u_) * I * ( uS - uI ) ,
-                - (d/dt) uI + gamma * uI - cost_inf'
-    right_side: 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0] # 0*vars[:, 0]+20.
+    eq_string: '(d/dt) S  = - beta_max * beta(vars,u_) * S * I,
+                (d/dt) I  =   beta_max * beta(vars,u_) * S * I - gamma * I,
+                (d/dt) uS =   beta_max * beta(vars,u_) * I * ( uS - uI ) - alpha(vars,u_)**2,
+                (d/dt) uI =   gamma * uI - cost_inf'
     relative_area: True
     point_area: '[[0, 1]]'
     N: 2000
    #
   initial:
-     eq_string: S , I
-     right_side: 0*vars[:, 0] + S_0 , 0*vars[:, 0] + 1 - S_0
+     eq_string: S = S_0 , I = 1 - S_0
      relative_area: True
      point_area: '[[0, 0]]'
      N: 1
   terminal:
-     eq_string: uS , uI
-     right_side: 0*vars[:, 0] , 0*vars[:, 0]
+     eq_string: uS = 0 , uI = 0
      relative_area: True
      point_area: '[[1, 1]]'
      N: 1

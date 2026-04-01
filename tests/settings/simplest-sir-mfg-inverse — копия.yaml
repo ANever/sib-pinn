@@ -42,25 +42,25 @@ CUSTOM_FUNCS:
   
 CONDS:
   pde:
-    eq_string: '- (d/dt) S - beta(vars,u_) * S * tf.stop_gradient( I ) = 0 ,
-                - tf.stop_gradient( (d/dt) I ) + beta(vars,u_) * S * tf.stop_gradient( I ) - gamma * tf.stop_gradient( I ) = 0 ,
-                - (d/dt) uS + beta(vars,u_) * tf.stop_gradient( I ) * ( uS - uI ) - alpha(vars,u_)**2 = 0 ,
-                - (d/dt) uI + gamma * uI - cost_inf = 0'
-    relative_area: True
-    point_area: '[[0, 1]]'
+    eq_string: '- (d/dt) S - beta(vars,u_) * S * tf.stop_gradient( I ) ,
+                - tf.stop_gradient( (d/dt) I ) + beta(vars,u_) * S * tf.stop_gradient( I ) - gamma * tf.stop_gradient( I ) ,
+                - (d/dt) uS + beta(vars,u_) * tf.stop_gradient( I ) * ( uS - uI ) - alpha(vars,u_)**2,
+                - (d/dt) uI + gamma * uI - cost_inf'
+    right_side: 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0], 0*vars[:, 0] 
+    point_area: '[[tmin, tmax]]'
     N: 10000
    #
   initial:
-     eq_string: S = S_0 , I = 1 - S_0
-     relative_area: True
-     point_area: '[[0, 1]]'
+     eq_string: S , I
+     right_side: 0*vars[:, 0] + S_0 , 0*vars[:, 0] + 1 - S_0
+     point_area: '[[tmin, tmin]]'
      N: 1
      
   
   terminal:
-     eq_string: uS = 0 , uI = 0
-     relative_area: True
-     point_area: '[[0, 1]]'
+     eq_string: uS , uI
+     right_side: 0*vars[:, 0] , 0*vars[:, 0]
+     point_area: '[[tmax, tmax]]'
      N: 1
 
   data:
