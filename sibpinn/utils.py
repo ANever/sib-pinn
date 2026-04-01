@@ -126,7 +126,6 @@ def gen_condition(cond_dict, model_args, **kwargs):
         bounds = np.array(cond_dict["point_area"])
         if cond_dict['relative_area']:
             bounds = bounds * (ub - lb) + lb
-            print(bounds)
         x = gen_points(cond_dict["N"], bounds)
         right_side_line = line_parser(cond_dict["right_side"], **kwargs)
         right_side_func = eval(
@@ -342,7 +341,7 @@ def plot_comparison(
     plt.savefig("./results" + output_dir + "/comparison_" + title + "_" + str(epoch) + "." + file_extension, dpi=300)
     plt.clf()
     plt.close()
-    with open('./results' + output_dir + '/data_'+ title + "_" + str(epoch) + ".txt"	, 'wb') as f:
+    with open('./results' + output_dir + '/data_'+ title + "_" + str(epoch) + ".pkl", 'wb') as f:
         pkl.dump((x,y,u_inf), f)	
         #pkl.dump(data, f)
         #	pkl.dump(data, f)

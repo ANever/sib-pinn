@@ -305,8 +305,9 @@ class PINN_BASE(tf.keras.Sequential):
                 func_names = self.func_names
         
                 file_extension = "jpg"
-                #u_ = self(self.x_ref)
-                #u_n = u_.numpy().transpose()
+                u_ = self(self.x_ref)
+                u_n = u_.numpy().transpose()
+                self.generate_plot_commons(epoch)
                 #plot_commons = {
                 #    "epoch": epoch,
                 #    "x": self.x_ref[:, 0],
@@ -326,7 +327,15 @@ class PINN_BASE(tf.keras.Sequential):
                                 labels=list(self.conds.keys()), 
                                 file_extension=file_extension,
                                 output_dir=output_dir,)
-
+    def generate_plot_commons(self, epoch=''):
+        plot_commons = {
+                    "epoch": epoch,
+                    "x": self.x_ref[:, 0],
+                    "xlabel": var_names[0],
+                    }
+        if len(self.settings["IN_VAR_NAMES"])>1:
+            plot_commons["y"] = x_ref[:, 1]
+            plot_commons["ylabel"] = var_names[1]
 
 
 class PINN(PINN_BASE):
