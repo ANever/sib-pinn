@@ -305,7 +305,13 @@ def load_data(title, epoch):
     return x,y,u_inf
 
 
-def plot_comparison(
+def plot_comparison(u_inf, **kwargs):
+    if len(u_inf.shape)>2:
+        plot_comparison2d(u_inf=u_inf, **kwargs)
+    else:
+        plot_comparison1d(u_inf=u_inf, **kwargs)
+
+def plot_comparison2d(
     epoch,
     x,
     y,

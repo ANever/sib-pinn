@@ -7,7 +7,7 @@ training
 #from sibpinn import PINN_WAVE, PINN, PINN_SEP
 import sibpinn as sp
 
-problem_name = 'simplest-sir-mfg'            
+problem_name = 'sir-controlled' #'simplest-sir-mfg'
 
 if __name__ == "__main__":
     sp.config_gpu(flag=0, verbose=True)

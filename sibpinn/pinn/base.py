@@ -13,7 +13,7 @@ from ..utils import (
     write_logger,
     eval_dict,
     plot_loss_curve,
-    plot_comparison1d,
+    plot_comparison,
     to_gif,
     from_file
 )
@@ -307,20 +307,13 @@ class PINN_BASE(tf.keras.Sequential):
                 file_extension = "jpg"
                 u_ = self(self.x_ref)
                 u_n = u_.numpy().transpose()
-                self.generate_plot_commons(epoch)
-                #plot_commons = {
-                #    "epoch": epoch,
-                #    "x": self.x_ref[:, 0],
-                #    "y": None, #x_ref[:, 1],
-                #    "xlabel": var_names[0],
-                #    "ylabel": None, #var_names[1],
-                #}
-                #for func, title in zip(u_n, func_names):
-                #    plot_comparison1d(u_inf=func, 
-                #                      title=title, 
-                #                      file_extension=file_extension, 
-                #                      output_dir=output_dir,
-                #                      **plot_commons)
+                plot_commons = self.generate_plot_commons(epoch)
+                for func, title in zip(u_n, func_names):
+                    plot_comparison(u_inf=func, 
+                                      title=title, 
+                                      file_extension=file_extension, 
+                                      output_dir=output_dir,
+                                      **plot_commons)
                 
                 plot_loss_curve(epoch, 
                                 losses_logs[:, 1:], 
@@ -328,15 +321,16 @@ class PINN_BASE(tf.keras.Sequential):
                                 file_extension=file_extension,
                                 output_dir=output_dir,)
     def generate_plot_commons(self, epoch=''):
+        var_names = self.settings["IN_VAR_NAMES"]
         plot_commons = {
                     "epoch": epoch,
                     "x": self.x_ref[:, 0],
                     "xlabel": var_names[0],
                     }
-        if len(self.settings["IN_VAR_NAMES"])>1:
-            plot_commons["y"] = x_ref[:, 1]
+        if len(var_names)>1:
+            plot_commons["y"] = self.x_ref[:, 1]
             plot_commons["ylabel"] = var_names[1]
-
+        return plot_commons
 
 class PINN(PINN_BASE):
     def __init__(
