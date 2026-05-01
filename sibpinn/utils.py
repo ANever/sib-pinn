@@ -20,10 +20,22 @@ from typing import List, Union, Dict, Any
 import traceback
 import copy
 
-def from_file(filename, model_class):
-    with open(filename, mode="r") as file:
-        settings = yaml.safe_load(file)
-    
+
+def init_conditions(conds, model, model_args):
+    conditions = []
+    for key in list(conds.keys()):
+        cond_ = gen_condition(
+            conds[key], model_args, func_names=model.func_names, var_names=model.var_names, **model.custom_vars
+        )
+        conditions.append(cond_)
+    cond_string = [
+        "self.loss_(*conditions[" + str(i) + "])," for i in range(len(conditions))
+    ]
+    cond_string = compile("(" + "".join(cond_string) + ")", '<string>', 'eval')
+    model.init_dynamical_normalisation(len(conds))
+    return conditions, cond_string
+
+def from_settings(settings, model_class):
     model_args = eval_dict(settings["MODEL"], {"tf": tf, "": np})
     settings["MODEL"] = model_args
     
@@ -40,18 +52,7 @@ def from_file(filename, model_class):
         dict_funcs=settings["CUSTOM_FUNCS"],
     )
     conds = eval_dict(settings["CONDS"], locals() | {"tf": tf} | model.custom_vars, 1)
-    conditions = []
-    for key in list(conds.keys()):
-        cond_ = gen_condition(
-            conds[key], model_args, func_names=model.func_names, var_names=model.var_names, **model.custom_vars
-        )
-        conditions.append(cond_)
-    cond_string = [
-        "self.loss_(*conditions[" + str(i) + "])," for i in range(len(conditions))
-    ]
-    cond_string = compile("(" + "".join(cond_string) + ")", '<string>', 'eval')
-    
-    model.init_dynamical_normalisation(len(conditions))
+    conditions, cond_string = init_conditions(conds, model, model_args)
     
     ns = eval_dict(settings["NS"])
     var_names = settings["IN_VAR_NAMES"]
@@ -70,8 +71,13 @@ def from_file(filename, model_class):
     model.conditions = conditions
     model.conds_string = cond_string
     model.settings = settings
-    
     return model
+
+def from_file(filename, model_class):
+    with open(filename, mode="r") as file:
+        settings = yaml.safe_load(file)
+    return from_settings(settings, model_class)
+    
 
 def find_all_words(string):
     _len = len(string)
@@ -110,9 +116,11 @@ def gen_points(num, bounds, n_vars=None):
     n_vars = len(bounds)
     points = [0] * n_vars
     for i in range(n_vars):
-        points[i] = tf.random.uniform(
-            (int(num), 1), bounds[i][0], bounds[i][1], dtype=tf.float32
-        )
+        #points[i] = tf.random.uniform(
+        #    (int(num), 1), bounds[i][0], bounds[i][1], dtype=tf.float32
+        #)
+        points[i] = tf.linspace(bounds[i][0], bounds[i][1], int(num))
+        points[i] = tf.reshape(points[i],(int(num), 1))
         # points[i] = tf.expand_dims(tf.linspace(
         #     start=bounds[i][0], stop=bounds[i][1], num=int(num)
         # ), -1)
@@ -128,12 +136,13 @@ def gen_condition(cond_dict, model_args, **kwargs):
         
         if not("right_side" in cond_dict.keys()):
             cond_dict["right_side"] = ('vars[:,0] * 0,' * (cond_dict["eq_string"].count('),') + 1))[:-1]
+            cond_dict["right_side"] = ('vars[:,0] * 0,' * (cond_dict["eq_string"].count('=')))[:-1]
         right_side_line = line_parser(cond_dict["right_side"], **kwargs)
         right_side_func = eval(
         "lambda vars: (" + right_side_line + ",)", kwargs | {"tf": tf}
         )
         c = tf.convert_to_tensor(right_side_func(x), dtype=tf.float32)
-        print(c.shape)
+        #print(c.shape)
         return x, c
         
     ub = model_args['in_ub']
@@ -184,24 +193,31 @@ default_var_names = ("x", "y")
 def line_parser(eq_string, func_names, var_names=default_var_names, **kwargs):
     var_dict = dict(zip(var_names, range(len(var_names))))
     
+    #print('\n', eq_string)
+    
     if '=' in eq_string:
-        counter = 0
+        counter = -1
         new_eq_string = ''
         for char in eq_string:
             if char=='(':
                 counter +=1
             elif char==')':
                 counter -=1
-            elif char==',' and counter==1:
+            elif char==',' and counter==0:
                 char='),'
-            else:
+            elif char=='=':
+                char='- ('
+            else:	
                 pass
             new_eq_string += char
+        #if new_eq_string[-1] != ',':
+        #   new_eq_string += ')'
         eq_string = new_eq_string
-        eq_string = eq_string.replace('=', ' - (')
+        #eq_string = eq_string.replace('=', ' - (')
         #eq_string = eq_string.replace(',', ' ), ')
         #eq_string += ')'
         
+    #print(eq_string)
     splited = eq_string.split(" ")
     ops_stack = []
 

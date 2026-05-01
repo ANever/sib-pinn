@@ -235,12 +235,17 @@ class PINN_BASE(tf.keras.Sequential):
             losses = tf.cast(eval(conds_string), tf.float32)
             #losses_normed = self.normalize_losses(losses)
             losses_normed = losses
-            grads = tp.jacobian(losses_normed, self.trainable_weights)
+            #grads = tp.jacobian(losses_normed, self.trainable_weights)
+            loss_glb = tf.math.reduce_sum(losses_normed)
+            #grads = tp.jacobian(loss_glb, self.trainable_weights)
+            grads = tp.gradient(loss_glb, self.trainable_weights)
         del tp
-        self.update_gammas(grads)
-        loss_glb = tf.math.reduce_sum(losses_normed)
-        grad = [tf.reduce_sum(v, axis=0) for v in grads]
-        self.optimizer.apply_gradients(zip(grad, self.trainable_weights))
+        #self.update_gammas(grads)
+        #loss_glb = tf.math.reduce_sum(losses_normed)
+        #grad = [tf.reduce_sum(v, axis=0) for v in grads]
+        
+        self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
+        #self.optimizer.apply(grads, self.trainable_weights)
         return loss_glb, losses
     
     @tf.function
@@ -299,7 +304,7 @@ class PINN_BASE(tf.keras.Sequential):
                 if loss_glb > loss_best * 10:
                     lr_down_flag = True
             # monitor
-            if epoch % 1000 == 0:
+            if epoch % 10000 == 0:
                 
                 var_names = self.settings["IN_VAR_NAMES"]
                 func_names = self.func_names

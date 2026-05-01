@@ -12,7 +12,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 class WaveBasis(tf.keras.layers.Layer):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.expand = lambda inputs: [inputs, tf.math.pow(inputs,2), tf.math.cos(inputs), tf.math.cos(2*inputs)]
+        self.expand = lambda inputs: [inputs, tf.math.pow(inputs,2), tf.math.pow(inputs,3), tf.math.cos(inputs), tf.math.cos(2*inputs), tf.math.cos(3*inputs)]
         self.num_of_funcs = len(self.expand(tf.constant(1.)))
         
     def call(self, inputs):
