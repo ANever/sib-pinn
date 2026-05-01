@@ -57,7 +57,6 @@ CONDS:
      point_area: '[[0, 1]]'
      N: 1
 
-
   terminal:
      eq_string: uS = 0 , uI = 0
      relative_area: True
@@ -66,6 +65,6 @@ CONDS:
 
   data:
      raw_data_condition: True
-     eq_string: I *10
+     eq_string: I*10
      weight: 10
      filename: colloc_solution_I.pkl
