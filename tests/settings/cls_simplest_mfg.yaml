@@ -1,0 +1,75 @@
+MODEL:    
+  dim_sizes: np.array([30])
+  area_lims: np.array([[-1., 1.]])
+  power: 5
+
+WEIGHTS:
+    border_weight: 200
+    colloc_weight: 1.5
+    connect_weights: np.array([15, 6])
+
+NS:
+  nx: [100, 100]
+
+IN_VAR_NAMES:
+ [t]
+
+OUT_VAR_NAMES:
+ ['S', 'I', 'uS', 'uI']
+
+CUSTOMS:
+    beta_max: 20. #'lambda u_: u_(func=4)', #20,
+    cost_inf: 4.
+    gamma: 2
+    S0: 0.7
+    w: 0.1
+    c: 'lambda u_: np.abs( beta_max *( uS - uI - w ) * I / 2.)'
+    approximation: 'lambda u_: -6.63320111e-01 + np.sqrt(c(u_)) *8.92654544e-01 - c(u_) * 6.99385982e-02 + c(u_)**2* 2.97831057e-04 - c(u_)**3 * 1.08549568e-06 + c(u_)**4*1.68015701e-09 +np.exp(-c(u_))*  3.66041065e-02 + np.exp(-2*c(u_))*  4.74148560e-01'
+    c_sign: 'lambda u_: np.sign(( uS - uI - w ))'
+    alpha: 'lambda u_: c_sign(u_) * approximation(u_)'
+    beta: 'lambda u_: beta_max/(1+np.exp(-alpha(u_)))'
+    small: 0.00001
+    border_weight: 1.
+    
+    border: 'lambda sol, x, variable_num, border_side: border_weight * int(abs(x[variable_num] - sol.area_lims[variable_num, border_side]) < 1e-8)'
+
+
+CONDITIONS:
+    pde:
+      left: 
+        - '- (d/dt) S - beta(u_loc) * (( S * &I ) + ( &S * I )) '
+        - '- (d/dt) I + beta(u_loc) * (( S * &I ) + ( &S * I )) - gamma * I '  
+        - '- (d/dt) uS - ( beta(u_loc) * ( &I * ( - uS + uI ) + I * ( - &uS + &uI )))'
+        - '- (d/dt) uI - ( -gamma * uI )'
+      right: 
+        - '- beta(u_loc) * (( &S * &I ))'
+        - 'beta(u_loc) * (( &S * &I ))'
+        - 'alpha(u_loc)**2 - beta(u_loc) * ( &I * ( - &uS + &uI - w))'
+        - 'cost_inf'
+      points: default
+    
+    border:
+      left:
+        - 'border(sol,x,0,0) * S'
+        - 'border(sol,x,0,0) * I'
+        - 'border(sol,x,0,1) * uS'
+        - 'border(sol,x,0,1) * uI'
+      right: 
+        - 'border(sol,x,0,0) * ( S0 )'
+        - 'border(sol,x,0,0) * ( 1 - S0 )'
+        - 'border(sol,x,0,1) * 0'
+        - 'border(sol,x,0,1) * 0'
+      points: '[[1.],[-1.]]'
+      type: border
+    
+    #data:
+    #  left:
+    #    - 'I*0'
+    #  right: 
+    #    - '0'
+    #  points: default
+    #  type: data
+    
+    #connect:
+    #  type: connect
+      

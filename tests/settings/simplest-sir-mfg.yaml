@@ -31,15 +31,16 @@ CUSTOM_CONSTS:
   beta_max: 20.
   gamma: 2.
   S_0: 0.7
+  w: 0.1
 
 CUSTOM_FUNCS:
   exact: t*0
   #beta: beta_max/(1.+tf.exp(-alpha(vars_,u_)))
   beta: 1/(1.+tf.exp(-alpha(vars_,u_)))
   #c: tf.math.abs(beta_max *( uI - uS ) *I / 2.)
-  c: tf.math.abs( beta_max *( uI - uS ) * I / 2.)
+  c: tf.math.abs( beta_max *( uI - uS + w ) * I / 2.) + 1e-10
   
-  c_sign: tf.math.sign( - ( uI - uS ))
+  c_sign: tf.math.sign( - ( uI - uS + w))
   
   #c_abs: tf.math.abs(c(vars_,u_)) #/3.
   #x**2, x**3, x**4, np.exp(-x), np.exp(-2*x))
@@ -49,9 +50,9 @@ CUSTOM_FUNCS:
   
 CONDS:
   pde:
-    eq_string: '(d/dt) S  = - beta_max * beta(vars,u_) * S * I,
-                (d/dt) I  =   beta_max * beta(vars,u_) * S * I - gamma * I,
-               - (d/dt) uS = - beta_max * beta(vars,u_) * I * ( uS - uI ) + alpha(vars,u_)**2,
+    eq_string: '(d/dt) S  = - beta_max * beta(vars,u_) * S * I ,
+                (d/dt) I  =   beta_max * beta(vars,u_) * S * I - gamma * I ,
+              - (d/dt) uS = - beta_max * beta(vars,u_) * I * ( uS - uI - w) + alpha(vars,u_)**2,
                - (d/dt) uI = - gamma * uI + cost_inf'
     relative_area: True
     point_area: '[[0, 1]]'

@@ -26,7 +26,7 @@ class AddConstantOuts(tf.keras.layers.Layer):
     def build(self, input_shape):
         self.const_outs = self.add_weight(name="bias",
                                     shape=(self.n_const_outs,),
-                                    initializer='zeros',
+                                    initializer='ones',
                                     trainable=True)
                                     
     def call(self, inputs):
@@ -235,16 +235,15 @@ class PINN_BASE(tf.keras.Sequential):
             losses = tf.cast(eval(conds_string), tf.float32)
             #losses_normed = self.normalize_losses(losses)
             losses_normed = losses
-            #grads = tp.jacobian(losses_normed, self.trainable_weights)
-            loss_glb = tf.math.reduce_sum(losses_normed)
-            #grads = tp.jacobian(loss_glb, self.trainable_weights)
-            grads = tp.gradient(loss_glb, self.trainable_weights)
+            grads = tp.jacobian(losses_normed, self.trainable_weights)
+            #loss_glb = tf.math.reduce_sum(losses_normed)
+            #grad = tp.gradient(loss_glb, self.trainable_weights)
         del tp
-        #self.update_gammas(grads)
-        #loss_glb = tf.math.reduce_sum(losses_normed)
-        #grad = [tf.reduce_sum(v, axis=0) for v in grads]
+        self.update_gammas(grads)
+        loss_glb = tf.math.reduce_sum(losses_normed)
+        grad = [tf.reduce_sum(v, axis=0) for v in grads]
         
-        self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
+        self.optimizer.apply_gradients(zip(grad, self.trainable_weights))
         #self.optimizer.apply(grads, self.trainable_weights)
         return loss_glb, losses
     
@@ -275,7 +274,7 @@ class PINN_BASE(tf.keras.Sequential):
         pbar = tqdm(range(N), total=N, desc="N")
         #tboard_callback = tf.keras.callbacks.TensorBoard(log_dir = 'logdir',
         #                                             histogram_freq = 1,)
-                                                     
+        lr_down_flag = False                                         
         for epoch in pbar:
             #tf.profiler.experimental.start('logdir')
             loss_glb, losses = self.train()#(model.conditions, model.conds_string)
@@ -288,43 +287,48 @@ class PINN_BASE(tf.keras.Sequential):
                 logger_data
             )
             write_logger(logger_path, logger_data)
-
+            
+            
+            def plotting(epoch):
+                    var_names = self.settings["IN_VAR_NAMES"]
+                    func_names = self.func_names
+            
+                    file_extension = "jpg"
+                    u_ = self(self.x_ref)
+                    u_n = u_.numpy().transpose()
+                    plot_commons = self.generate_plot_commons(epoch)
+                    for func, title in zip(u_n, func_names):
+                        plot_comparison(u_inf=func, 
+                                          title=title, 
+                                          file_extension=file_extension, 
+                                          output_dir=output_dir,
+                                          **plot_commons)
+                    
+                    plot_loss_curve(epoch, 
+                                    losses_logs[:, 1:], 
+                                    labels=list(self.conds.keys()), 
+                                    file_extension=file_extension,
+                                    output_dir=output_dir,)
+                                    
             # early stopping
-            lr_down_flag = False
             if loss_glb < loss_best:
                 loss_best = loss_glb
                 wait = 0
                 if lr_down_flag:
                     self.lr *= 0.9
+                    lr_down_flag = False
             else:
                 if wait >= args["patience"]:
                     print(">>>>> early stopping")
+                    plotting('_best')
                     break
                 wait += 1
-                if loss_glb > loss_best * 10:
+                if loss_glb > loss_best * 2:
                     lr_down_flag = True
             # monitor
             if epoch % 10000 == 0:
+                plotting(epoch)
                 
-                var_names = self.settings["IN_VAR_NAMES"]
-                func_names = self.func_names
-        
-                file_extension = "jpg"
-                u_ = self(self.x_ref)
-                u_n = u_.numpy().transpose()
-                plot_commons = self.generate_plot_commons(epoch)
-                for func, title in zip(u_n, func_names):
-                    plot_comparison(u_inf=func, 
-                                      title=title, 
-                                      file_extension=file_extension, 
-                                      output_dir=output_dir,
-                                      **plot_commons)
-                
-                plot_loss_curve(epoch, 
-                                losses_logs[:, 1:], 
-                                labels=list(self.conds.keys()), 
-                                file_extension=file_extension,
-                                output_dir=output_dir,)
     def generate_plot_commons(self, epoch=''):
         var_names = self.settings["IN_VAR_NAMES"]
         plot_commons = {

@@ -1,7 +1,7 @@
 ARGS:
   epochs: 300000
   batch_size: -1
-  patience: 2000
+  patience: 4000
 
 MODEL:
   f_hid: 25
@@ -10,9 +10,9 @@ MODEL:
   in_ub: '[1.]'
   act: tanh
   seed: 42
-  lr: 0.0005
+  lr: 0.005
   beta: 0.1
-  dyn_norm: False #'dyn_norm' #
+  dyn_norm: 'dyn_norm' #
   
 NS:
   nx: [100]
@@ -54,17 +54,17 @@ CONDS:
   initial:
      eq_string: S = S_0 , I = 1 - S_0
      relative_area: True
-     point_area: '[[0, 1]]'
+     point_area: '[[0, 0]]'
      N: 1
 
   terminal:
      eq_string: uS = 0 , uI = 0
      relative_area: True
-     point_area: '[[0, 1]]'
+     point_area: '[[1, 1]]'
      N: 1
 
   data:
      raw_data_condition: True
-     eq_string: I*10
+     eq_string: I *10
      weight: 10
      filename: colloc_solution_I.pkl
