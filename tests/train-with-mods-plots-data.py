@@ -30,13 +30,13 @@ if __name__ == "__main__":
     #filename = "./settings/"+problem_name+".yaml"
     names = ['S', 'I', 'uS', 'uI', 'beta_max']
     error_tab = np.zeros((len(names), 10, n))
-    for ii, i in enumerate(45*np.array([2**i for i in range(10)])):
+    for ii, i in enumerate(50*np.array([2**i for i in range(10)])):
         for j in range(n):
             print('\n')
             output_dir="results/"+problem_name+str(i)+'_'+str(j)
             for k, var in enumerate(names):
-                with open(output_dir+'/data_'+var+'__best.txt', 'rb') as data_loc:
-                    data_var = pkl.load(data_loc)
+                #with open(output_dir+'/data_'+var+'__best.txt', 'rb') as data_loc:
+                #    data_var = pkl.load(data_loc)
                 error = 0
                 for l in range(len(data_var[1])):
                     try:
