@@ -51,8 +51,6 @@ if __name__ == "__main__":
             
             model = sp.from_settings(settings, 
                                 model_class=sp.PINN_WAVE)
-            print(model(tf.constant([[1.]])))
-            
             model.run_training(output_dir="/"+problem_name+str(i)+'_'+str(j))
-            
+            print(model(tf.constant([[1.]])))[-1]
             
