@@ -25,10 +25,9 @@ def eval_errors(sol, model):
         err = 0
         for p_i in points:
             data = sol.eval(p_i, [0], func=i)
-            err += abs((data - model(tf.constant([p_i]))[0][i])/(data+1e-7))
-        print(err)
-        total_err[i] = err/n
-    total_err[-1] = abs(20 - model(tf.constant([p_i]))[0][-1])/20
+            err += ((data - model(tf.constant([p_i]))[0][i])**2/(data+1e-7)**2)
+        total_err[i] = np.sqrt(err)/n
+    total_err[-1] = np.sqrt((20 - model(tf.constant([p_i]))[0][-1])**2)/20
     print(total_err)
     return total_err
     
@@ -50,29 +49,33 @@ if __name__ == "__main__":
         print(x.shape)
         c = x*0
         for ii in range(i):
-            c[ii] = sol.eval(x[ii], [0], func=1)
+            c[ii][0] = sol.eval(x[ii], [0], func=1)
+        #print(c)
         #x = np.array(data['points'])
         for j in range(n):
             with open(filename, mode="r") as file:
                     settings = yaml.safe_load(file)
-            model = sp.from_settings(settings, 
-                            model_class=sp.PINN_WAVE)
-            for iteration in range(100):
-                with open(filename, mode="r") as file:
-                    settings = yaml.safe_load(file)
-                data_filename = 'raw_data/colloc_solution_I_'+str(i)+'_'+str(j)+'.pkl'
-                settings['CONDS']['data']['filename'] = data_filename 
-                #c = np.array(data['data'])
-                c *= (1 + np.random.normal(0,noise[j],c.shape))
-                out_dict = {'points':x, 'data':c}
-                print(c.shape)
-                with open(data_filename, mode="wb") as file:
-                    pkl.dump(out_dict, file)
-                model.run_training(output_dir="/"+problem_name+str(i)+'_'+str(j))
-                errors = eval_errors(sol, model)
-                with open(out_file, mode="a") as file:
-                    out_string = str(i) + "," + str(noise[j])
-                    for part in errors:
-                        out_string += "," + str(part)
-                    out_string += "\n"
-                    file.write(out_string)
+            for long_iteration in range(20):
+                model = sp.from_settings(settings, 
+                                model_class=sp.PINN_WAVE)
+                for iteration in range(5):
+                    with open(filename, mode="r") as file:
+                        settings = yaml.safe_load(file)
+                    data_filename = 'raw_data/colloc_solution_I_'+str(i)+'_'+str(j)+'.pkl'
+                    settings['CONDS']['data']['filename'] = data_filename 
+                    #c = np.array(data['data'])
+                    c_new = c * (1 + np.random.normal(0,noise[j],c.shape))
+                    out_dict = {'points':x, 'data':c_new}
+                    print(c.shape)
+                    with open(data_filename, mode="wb") as file:
+                        pkl.dump(out_dict, file)
+                    
+                    model = sp.reload_conditions(model, settings)
+                    model.run_training(output_dir="/"+problem_name+str(i)+'_'+str(j))
+                    errors = eval_errors(sol, model)
+                    with open(out_file, mode="a") as file:
+                        out_string = str(i) + "," + str(noise[j])
+                        for part in errors:
+                            out_string += "," + str(part)
+                        out_string += "\n"
+                        file.write(out_string)

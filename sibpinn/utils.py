@@ -35,6 +35,19 @@ def init_conditions(conds, model, model_args):
     model.init_dynamical_normalisation(len(conds))
     return conditions, cond_string
 
+
+def reload_conditions(model, settings):
+    var_names = settings["IN_VAR_NAMES"]
+    func_names = settings["OUT_VAR_NAMES"]
+    const_outs_names = settings["VARIABLES"]
+    
+    conds = eval_dict(settings["CONDS"], locals() | {"tf": tf} | model.custom_vars, 1)
+    conditions, cond_string = init_conditions(conds, model, model.settings['MODEL'])
+    
+    model.conditions = conditions
+    model.conds_string = cond_string
+    return model
+
 def from_settings(settings, model_class):
     model_args = eval_dict(settings["MODEL"], {"tf": tf, "": np})
     settings["MODEL"] = model_args

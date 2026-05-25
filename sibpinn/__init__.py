@@ -5,4 +5,4 @@ from .pinn.base import PINN
 from .pinn.wave import PINN_WAVE
 from .pinn.separated import PINN_SEP
 from sibpinn.config_gpu import config_gpu
-from sibpinn.utils import from_file, from_settings
+from sibpinn.utils import from_file, from_settings, reload_conditions
