@@ -315,7 +315,8 @@ class PINN_BASE(tf.keras.Sequential):
             
             if loss_glb < loss_best:
                 loss_best = loss_glb
-                self.save_weights('model_checkpoint.weights.h5')
+                #self.save_weights('model_checkpoint.weights.h5')
+                best_weights = self.get_weights()
                 wait = 0
                 if lr_down_flag:
                     self.lr *= 0.9
@@ -323,7 +324,8 @@ class PINN_BASE(tf.keras.Sequential):
             else:
                 if wait >= args["patience"]:
                     print(">>>>> early stopping")
-                    self.load_weights('model_checkpoint.weights.h5')
+                    #self.load_weights('model_checkpoint.weights.h5')
+                    self.set_weights(best_weights)
                     plotting('_best')
                     break
                 wait += 1
